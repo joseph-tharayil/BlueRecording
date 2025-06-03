@@ -89,22 +89,33 @@ def processSubsampling(inputString):
 
     return np.arange(int(start), int(end))
 
-def getSimulationInfo(path_to_simconfig):
+def getSimulationInfo(path_to_simconfig,coefficientFile=None):
 
     '''
     Returns the following:
     report: Sonata report object
     node_ids: list of ids for which segment coefficients will be written
     '''
-    
-    rSim = bp.Simulation(path_to_simconfig)
-    r = rSim.reports[list(rSim.reports.keys())[0]] # We assume that the compartment report is the only report produced by the simulation
 
-    population_name = getPopulationName(path_to_simconfig)
-
-    report = r[population_name]
+    if path_to_simconfig is not None:
     
-    nodeIds = report.node_ids
+        rSim = bp.Simulation(path_to_simconfig)
+        r = rSim.reports[list(rSim.reports.keys())[0]] # We assume that the compartment report is the only report produced by the simulation
+    
+        population_name = getPopulationName(path_to_simconfig)
+    
+        report = r[population_name]
+        
+        nodeIds = report.node_ids
+
+    else:
+
+        file = h5py.File(coefficientFile)
+        population_name = getPopulationName(path_to_simconfig,coefficientFile)
+
+        nodeIds = file[population_name]['node_ids'][:]
+
+        report = None
 
     return report, nodeIds
 
@@ -124,12 +135,20 @@ def getPopulationObject(path_to_simconfig):
     return population
 
 
-def getPopulationName(path_to_simconfig):
+def getPopulationName(path_to_simconfig,coefficientFile=None):
 
-    rSim = bp.Simulation(path_to_simconfig)
-    r = rSim.reports[list(rSim.reports.keys())[0]] # We assume that the compartment report is the only report produced by the simulation
+    if path_to_simconfig is not None:
 
-    population_name = r.population_names[0]
+        rSim = bp.Simulation(path_to_simconfig)
+        r = rSim.reports[list(rSim.reports.keys())[0]] # We assume that the compartment report is the only report produced by the simulation
+    
+        population_name = r.population_names[0]
+
+    else: # Reads name of population from coefficient file
+
+        f = h5py.File(coefficientFile)
+        population_name = list(f.keys())[0] # Assumes population name is first element in keys
+        f.close()
 
     return population_name
 
