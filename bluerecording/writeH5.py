@@ -570,8 +570,8 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
     files_per_folder is the number of positions pickle files in each subfolder in segment_position_folder. This is also specified by the user in getPositions()
     '''
 
-    r, allNodeIds = getSimulationInfo(path_to_simconfig)
-    population_name = getPopulationName(path_to_simconfig)
+    _, allNodeIds = getSimulationInfo(path_to_simconfig,outputfile)
+    population_name = getPopulationName(path_to_simconfig,outputfile)
 
 
     h5 = h5py.File(outputfile, 'a',driver='mpio',comm=MPI.COMM_WORLD)
@@ -586,12 +586,7 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
 
         return 1
 
-
-    data = getMinimalReport(r,node_ids) # Loads compartment report for selected node_ids
-
-
-    columns = data.columns
-
+    newPositions = getSegmentMidpts(positions,node_ids) # For most methods, we need the segment centers, not the endpoints.
 
     coeffList = []
 
@@ -614,14 +609,12 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
 
         if electrodeType == 'LineSource':
 
-            coeffs = get_coeffs_lineSource(positions,columns,epos,sigma[sigmaIdx])
+            coeffs = get_coeffs_lineSource(positions,newPositions.columns,epos,sigma[sigmaIdx])
 
             if len(sigma) > 1:
                 sigmaIdx += 1
 
         else:
-
-            newPositions = getSegmentMidpts(positions,node_ids) # For other methods, we need the segment centers, not the endpoints
 
 
             if electrodeType == 'PointSource':
