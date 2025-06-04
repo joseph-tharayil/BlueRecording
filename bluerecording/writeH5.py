@@ -445,22 +445,6 @@ def getSegmentMidpts(positions,node_ids):
     return newPos
 
 
-def get_indices(rank, nranks,neurons_per_file,numPositionFiles):
-
-    iterationsPerFile = int(nranks/numPositionFiles) # How many ranks is any position file divided among
-
-    if iterationsPerFile < 1:
-        raise AssertionError("One rank cannot process more than one position file. Either increase the number of ranks or increase the number of neurons per file if necessary")
-
-    iterationSize = int(np.ceil(neurons_per_file/iterationsPerFile))  # Number of node_ids processed on this rank
-
-    if iterationSize < 1:
-        raise AssertionError("Each rank must process at least one neuron. Either decrease the number of ranks or decrease the number of neurons per file if necessary")
-
-    iteration = int(rank/numPositionFiles)
-
-    return iteration, iterationSize
-
 def get_position_file_name(filesPerFolder, numPositionFiles, rank):
 
     index = int(rank % numPositionFiles)
@@ -499,13 +483,40 @@ def getIdsAndPositions(ids, segment_position_folder,neurons_per_file, numFilesPe
 
     numPositionFiles = np.ceil(len(ids)/neurons_per_file)
 
-    positions = load_positions(segment_position_folder,numFilesPerFolder, numPositionFiles, rank)
+    iterationsPerFile = int(nranks/numPositionFiles) # How many ranks is any position file divided among
 
-    iteration, iterationSize = get_indices(rank, nranks,neurons_per_file,numPositionFiles)
+    if iterationsPerFile >= 1:
 
-    g = getCurrentIds(positions,iteration,iterationSize)
+        iterationSize = int(np.ceil(neurons_per_file / iterationsPerFile))  # Number of node_ids processed on this rank
 
-    positions = positions[g] # Gets positions for specific gids
+        if iterationSize < 1:
+            raise AssertionError(
+                "Each rank must process at least one neuron. Either decrease the number of ranks or decrease the number of neurons per file if necessary")
+
+        iteration = int(rank / numPositionFiles)
+
+        positions = load_positions(segment_position_folder,numFilesPerFolder, numPositionFiles, rank)
+
+        g = getCurrentIds(positions,iteration,iterationSize)
+
+        positions = positions[g] # Gets positions for specific gids
+
+    else:
+
+        filesPerRank = int(numPositionFiles/nranks)
+
+        for index in range(filesPerRank):
+            fileIdx = rank*filesPerRank + index
+            folder = int(fileIdx/numFilesPerFolder)
+
+            newPositions = pd.read_pickle(segment_position_folder+'/'+str(folder)+'/positions'+str(fileIdx)+'.pkl')
+
+            if index == 0:
+                positions = newPositions
+            else:
+                positions = pd.concat((positions, newPositions),axis=1)
+
+            g = np.unique(np.array(list(positions.columns))[:, 0])
 
     return g, positions
 

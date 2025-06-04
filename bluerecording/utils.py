@@ -5,6 +5,7 @@ import numpy as np
 import os
 from voxcell.nexus.voxelbrain import Atlas
 from sklearn.decomposition import PCA
+import h5py
 
 def process_writeH5_inputs(inputs):
 
@@ -147,7 +148,9 @@ def getPopulationName(path_to_simconfig,coefficientFile=None):
     else: # Reads name of population from coefficient file
 
         f = h5py.File(coefficientFile)
-        population_name = list(f.keys())[0] # Assumes population name is first element in keys
+        population_list = list(f.keys())
+        population_list.remove("electrodes")
+        population_name = population_list[0] # Assumes population name is first element in keys
         f.close()
 
     return population_name
