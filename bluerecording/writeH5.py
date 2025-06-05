@@ -445,22 +445,6 @@ def getSegmentMidpts(positions,node_ids):
     return newPos
 
 
-def get_indices(rank, nranks,neurons_per_file,numPositionFiles):
-
-    iterationsPerFile = int(nranks/numPositionFiles) # How many ranks is any position file divided among
-
-    if iterationsPerFile < 1:
-        raise AssertionError("One rank cannot process more than one position file. Either increase the number of ranks or increase the number of neurons per file if necessary")
-
-    iterationSize = int(np.ceil(neurons_per_file/iterationsPerFile))  # Number of node_ids processed on this rank
-
-    if iterationSize < 1:
-        raise AssertionError("Each rank must process at least one neuron. Either decrease the number of ranks or decrease the number of neurons per file if necessary")
-
-    iteration = int(rank/numPositionFiles)
-
-    return iteration, iterationSize
-
 def get_position_file_name(filesPerFolder, numPositionFiles, rank):
 
     index = int(rank % numPositionFiles)
@@ -499,13 +483,40 @@ def getIdsAndPositions(ids, segment_position_folder,neurons_per_file, numFilesPe
 
     numPositionFiles = np.ceil(len(ids)/neurons_per_file)
 
-    positions = load_positions(segment_position_folder,numFilesPerFolder, numPositionFiles, rank)
+    iterationsPerFile = int(nranks/numPositionFiles) # How many ranks is any position file divided among
 
-    iteration, iterationSize = get_indices(rank, nranks,neurons_per_file,numPositionFiles)
+    if iterationsPerFile >= 1:
 
-    g = getCurrentIds(positions,iteration,iterationSize)
+        iterationSize = int(np.ceil(neurons_per_file / iterationsPerFile))  # Number of node_ids processed on this rank
 
-    positions = positions[g] # Gets positions for specific gids
+        if iterationSize < 1:
+            raise AssertionError(
+                "Each rank must process at least one neuron. Either decrease the number of ranks or decrease the number of neurons per file if necessary")
+
+        iteration = int(rank / numPositionFiles)
+
+        positions = load_positions(segment_position_folder,numFilesPerFolder, numPositionFiles, rank)
+
+        g = getCurrentIds(positions,iteration,iterationSize)
+
+        positions = positions[g] # Gets positions for specific gids
+
+    else:
+
+        filesPerRank = int(numPositionFiles/nranks)
+
+        for index in range(filesPerRank):
+            fileIdx = rank*filesPerRank + index
+            folder = int(fileIdx/numFilesPerFolder)
+
+            newPositions = pd.read_pickle(segment_position_folder+'/'+str(folder)+'/positions'+str(fileIdx)+'.pkl')
+
+            if index == 0:
+                positions = newPositions
+            else:
+                positions = pd.concat((positions, newPositions),axis=1)
+
+            g = np.unique(np.array(list(positions.columns))[:, 0])
 
     return g, positions
 
@@ -570,8 +581,8 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
     files_per_folder is the number of positions pickle files in each subfolder in segment_position_folder. This is also specified by the user in getPositions()
     '''
 
-    r, allNodeIds = getSimulationInfo(path_to_simconfig)
-    population_name = getPopulationName(path_to_simconfig)
+    _, allNodeIds = getSimulationInfo(path_to_simconfig,outputfile)
+    population_name = getPopulationName(path_to_simconfig,outputfile)
 
 
     h5 = h5py.File(outputfile, 'a',driver='mpio',comm=MPI.COMM_WORLD)
@@ -586,12 +597,7 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
 
         return 1
 
-
-    data = getMinimalReport(r,node_ids) # Loads compartment report for selected node_ids
-
-
-    columns = data.columns
-
+    newPositions = getSegmentMidpts(positions,node_ids) # For most methods, we need the segment centers, not the endpoints.
 
     coeffList = []
 
@@ -614,14 +620,12 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
 
         if electrodeType == 'LineSource':
 
-            coeffs = get_coeffs_lineSource(positions,columns,epos,sigma[sigmaIdx])
+            coeffs = get_coeffs_lineSource(positions,newPositions.columns,epos,sigma[sigmaIdx])
 
             if len(sigma) > 1:
                 sigmaIdx += 1
 
         else:
-
-            newPositions = getSegmentMidpts(positions,node_ids) # For other methods, we need the segment centers, not the endpoints
 
 
             if electrodeType == 'PointSource':
