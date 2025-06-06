@@ -1,0 +1,2 @@
+name,x,y,z,layer,region,type,size,shape
+name,1,2,3,Outside,Outside,PointSource,10.0,'sphere'

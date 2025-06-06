@@ -9,6 +9,7 @@ import json
 from .utils import *
 import pkg_resources
 import datetime
+import warnings
 
 class ElectrodeFileStructure(object):
 
@@ -132,8 +133,31 @@ def makeElectrodeDict(electrode_csv):
         else:
             electrodeType = 'LineSource'
 
+        if 'shape' in electrode_df.columns:
+            if electrodeType == 'LineSource' or electrodeType == 'PointSource':
+                shape = electrode_df['shape'].iloc[i]
+                if shape.casefold() != 'sphere'.casefold():
+                    warnings.warn("Shape must be sphere. If not, it will be ignored")
+            else:
+                shape = 'NA'
+                warnings.warn("Electrode shape can only be defined for LineSource or PointSource; otherwise, it is ignored")
+        else:
+            shape = 'NA'
+
+        if 'size' in electrode_df.columns:
+            if electrodeType == 'LineSource' or electrodeType == 'PointSource':
+                size = electrode_df['size'].iloc[i]
+                if shape.casefold() != 'sphere'.casefold():
+                    warnings.warn("If you specify an electrode size, bluerecording will assume that it is spherical in shape")
+                    shape = 'sphere'
+            else:
+                size = 'NA'
+                warnings.warn("Electrode size can only be defined for LineSource or PointSource; otherwise, it is ignored")
+        else:
+            size = 'NA'
+
         electrodes[name] = {'position': position,'type': electrodeType,
-        'region':region,'layer':layer}
+        'region':region,'layer':layer,'shape':shape,'size':size}
 
 
     return electrodes
