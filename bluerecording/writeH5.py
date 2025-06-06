@@ -481,6 +481,7 @@ def getIdsAndPositions(ids, segment_position_folder,neurons_per_file, numFilesPe
     rank = MPI.COMM_WORLD.Get_rank()
     nranks = MPI.COMM_WORLD.Get_size()
 
+
     numPositionFiles = np.ceil(len(ids)/neurons_per_file)
 
     iterationsPerFile = int(nranks/numPositionFiles) # How many ranks is any position file divided among
@@ -503,10 +504,14 @@ def getIdsAndPositions(ids, segment_position_folder,neurons_per_file, numFilesPe
 
     else:
 
-        filesPerRank = int(numPositionFiles/nranks)
+        filesPerRank = int(np.ceil(numPositionFiles/nranks))
 
         for index in range(filesPerRank):
             fileIdx = rank*filesPerRank + index
+            
+            if fileIdx >= numPositionFiles:
+                continue
+
             folder = int(fileIdx/numFilesPerFolder)
 
             newPositions = pd.read_pickle(segment_position_folder+'/'+str(folder)+'/positions'+str(fileIdx)+'.pkl')
@@ -588,6 +593,10 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
     h5 = h5py.File(outputfile, 'a',driver='mpio',comm=MPI.COMM_WORLD)
 
     node_ids, positions = getIdsAndPositions(allNodeIds, segment_position_folder,neurons_per_file, files_per_folder)
+
+    if node_ids is None:
+
+        return 1
 
     if len(node_ids)==0:
 
