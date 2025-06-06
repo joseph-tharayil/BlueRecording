@@ -8,6 +8,7 @@ positions_all_new_big/
 networks/
 network/
 examples/allen/data/simulation/configuration/components
+examples/**/data/
 bkg_inputs/
 atlas/
 reporting/
