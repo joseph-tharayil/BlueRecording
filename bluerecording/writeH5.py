@@ -141,13 +141,69 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma):
 
     return coeffs
 
-def get_coeffs_pointSource(positions,electrodePos,sigma):
+def averageCoeffs(positions,electrodePos,electrodeSize):
 
-    distances = np.linalg.norm(positions.values-electrodePos[:,np.newaxis],axis=0)
+    '''
+    Performs random sampling over the sphere to calculate average distance from point to surface
+    '''
 
-    distances *= 1e-6 # Converts from um to m
+    seed = 42
 
-    coeffs = 1/(4*np.pi*sigma*distances)
+    N = 100000 # Number of sample points
+
+    a_array = positions-electrodePos[:,np.newaxis]
+
+    np.random.seed(seed)
+
+    # Sample N points uniformly on the sphere using spherical coordinates
+    u = np.random.rand(N)
+    v = np.random.rand(N)
+    theta = np.arccos(1 - 2 * u)  # θ ∈ [0, π]
+    phi = 2 * np.pi * v  # φ ∈ [0, 2π)
+
+    sin_theta = np.sin(theta)
+
+    # Convert to Cartesian coordinates
+    x = electrodeSize * sin_theta * np.cos(phi)
+    y = electrodeSize * sin_theta * np.sin(phi)
+    z = electrodeSize * np.cos(theta)
+
+    # Broadcast particle positions (3,N) and a_array (3,M) to compute distances
+    r_samples = np.stack([x, y, z], axis=0)  # shape (3,N)
+    a_array = np.atleast_2d(a_array)  # shape (3,M)
+
+
+    diff = r_samples[:, :, None] - a_array[:, None, :]  # shape (3, N, M)
+
+    dist = np.linalg.norm(diff, axis=0)  # shape (N,M)
+
+    print(np.mean(dist,axis=0))
+
+    # Compute integrand: r^2 * sinθ / |r - a|
+    integrand_vals = electrodeSize ** 2 * sin_theta[:,None] / dist  # shape (N,M)
+
+    # Average over sphere and normalize
+    avg_integrals = dist.mean(axis=0)
+
+    print(avg_integrals)
+
+    volume = (4 / 3) * np.pi * electrodeSize ** 3
+
+    return avg_integrals #/ volume
+
+def get_coeffs_pointSource(positions,electrodePos,sigma,size='NA'):
+
+    if size == 'NA':
+
+        distances = np.linalg.norm(positions.values-electrodePos[:,np.newaxis],axis=0)
+
+        distances *= 1e-6  # Converts from um to m
+
+        coeffs = 1 / (4 * np.pi * sigma * distances)
+
+    else:
+
+        coeffs = 1/(4*np.pi*sigma)*averageCoeffs(positions.values*1e-6,electrodePos*1e-6,size*1e-6)
 
     coeffs *= 1e-9 # Converts from nA to A
 
@@ -639,7 +695,9 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
 
             if electrodeType == 'PointSource':
 
-                coeffs = get_coeffs_pointSource(newPositions, epos, sigma[sigmaIdx])
+                electrodeSize = h5['electrodes'][str(electrode)]['size'][()].decode() # Gets size for each electrode
+
+                coeffs = get_coeffs_pointSource(newPositions, epos, sigma[sigmaIdx],electrodeSize)
 
                 if len(sigma) > 1:
                     sigmaIdx += 1

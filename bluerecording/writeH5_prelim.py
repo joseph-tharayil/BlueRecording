@@ -134,25 +134,25 @@ def makeElectrodeDict(electrode_csv):
             electrodeType = 'LineSource'
 
         if 'shape' in electrode_df.columns:
-            if electrodeType == 'LineSource' or electrodeType == 'PointSource':
+            if electrodeType == 'PointSource':
                 shape = electrode_df['shape'].iloc[i]
                 if shape.casefold() != 'sphere'.casefold():
                     warnings.warn("Shape must be sphere. If not, it will be ignored")
             else:
                 shape = 'NA'
-                warnings.warn("Electrode shape can only be defined for LineSource or PointSource; otherwise, it is ignored")
+                warnings.warn("Electrode shape can only be defined for PointSource; otherwise, it is ignored")
         else:
             shape = 'NA'
 
         if 'size' in electrode_df.columns:
-            if electrodeType == 'LineSource' or electrodeType == 'PointSource':
+            if electrodeType == 'PointSource':
                 size = electrode_df['size'].iloc[i]
                 if shape.casefold() != 'sphere'.casefold():
                     warnings.warn("If you specify an electrode size, bluerecording will assume that it is spherical in shape")
                     shape = 'sphere'
             else:
                 size = 'NA'
-                warnings.warn("Electrode size can only be defined for LineSource or PointSource; otherwise, it is ignored")
+                warnings.warn("Electrode size can only be defined for PointSource; otherwise, it is ignored")
         else:
             size = 'NA'
 

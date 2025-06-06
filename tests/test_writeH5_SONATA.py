@@ -237,6 +237,32 @@ def test_get_coeffs_pointSource(positions,electrodePosition,sigma,gids):
 
     pd.testing.assert_frame_equal(coeffs,expectedOutput)
 
+def test_get_coeffs_pointSource_finite(positions,sigma,gids):
+
+    x0 = 1e4
+
+    distantElectrodePosition = np.array([x0,x0,x0])
+
+    radius = 10
+
+    newPositions = getSegmentMidpts(positions,gids)
+    coeffs = get_coeffs_pointSource(newPositions,distantElectrodePosition,sigma,radius)
+
+    print(coeffs)
+
+    somaDistance = np.sqrt(3*x0**2)*1e-6
+    expectedSomaCoeff = 1/(4*np.pi*sigma*somaDistance)*1e-9
+
+    segmentDistance = np.sqrt(x0**2+x0**2+(x0-.5)**2)*1e-6
+
+    expectedSegmentCoeff = 1/(4*np.pi*sigma*segmentDistance)*1e-9
+
+    expectedOutput = pd.DataFrame(data=np.hstack((expectedSomaCoeff,expectedSegmentCoeff))[np.newaxis,:],columns=newPositions.columns)
+
+    print(expectedOutput)
+
+    pd.testing.assert_frame_equal(coeffs,expectedOutput)
+
 def test_get_coeffs_reciprocity(positions,write_potentialField,gids):
 
     testPositions = getSegmentMidpts(positions,gids)

@@ -9,6 +9,7 @@ networks/
 network/
 examples/allen/data/simulation/configuration/components
 examples/**/data/
+!examples/compare-to-reference-solutions/data
 bkg_inputs/
 atlas/
 reporting/
