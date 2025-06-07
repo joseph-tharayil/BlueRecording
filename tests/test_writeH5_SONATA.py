@@ -239,11 +239,11 @@ def test_get_coeffs_pointSource(positions,electrodePosition,sigma,gids):
 
 def test_get_coeffs_pointSource_finite(positions,sigma,gids):
 
-    x0 = 1e4
+    x0 = 1e2
 
     distantElectrodePosition = np.array([x0,x0,x0])
 
-    radius = 10
+    radius = 9.9
 
     newPositions = getSegmentMidpts(positions,gids)
     coeffs = get_coeffs_pointSource(newPositions,distantElectrodePosition,sigma,radius)

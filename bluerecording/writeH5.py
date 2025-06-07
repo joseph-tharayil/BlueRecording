@@ -149,7 +149,7 @@ def averageCoeffs(positions,electrodePos,electrodeSize):
 
     seed = 42
 
-    N = 100000 # Number of sample points
+    N = 10 # Number of sample points
 
     a_array = positions-electrodePos[:,np.newaxis]
 
@@ -176,9 +176,6 @@ def averageCoeffs(positions,electrodePos,electrodeSize):
     diff = r_samples[:, :, None] - a_array[:, None, :]  # shape (3, N, M)
 
     dist = np.linalg.norm(diff, axis=0)  # shape (N,M)
-
-    print(np.mean(dist,axis=0))
-
     # Compute integrand: r^2 * sinθ / |r - a|
     integrand_vals = electrodeSize ** 2 * sin_theta[:,None] / dist  # shape (N,M)
 
@@ -189,7 +186,7 @@ def averageCoeffs(positions,electrodePos,electrodeSize):
 
     volume = (4 / 3) * np.pi * electrodeSize ** 3
 
-    return avg_integrals #/ volume
+    return 1/avg_integrals #/ volume
 
 def get_coeffs_pointSource(positions,electrodePos,sigma,size='NA'):
 
@@ -695,7 +692,7 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
 
             if electrodeType == 'PointSource':
 
-                electrodeSize = h5['electrodes'][str(electrode)]['size'][()].decode() # Gets size for each electrode
+                electrodeSize = h5['electrodes'][str(electrode)]['size'][()] # Gets size for each electrode
 
                 coeffs = get_coeffs_pointSource(newPositions, epos, sigma[sigmaIdx],electrodeSize)
 
