@@ -61,7 +61,8 @@ def interp_points(coords, ncomps):
         distances = np.insert(distances,0,0)
 
         f = interp1d(distances, coords[:, dim], kind='linear')
-        ic = f(np.linspace(0, 1, ncomps + 1)).reshape(ncomps + 1, 1)
+        ic = f(np.linspace(0, 1, ncomps + 1)).reshape(ncomps + 1, 1)# The zero references the diameter of the segment, which is ignored
+
         xyz = np.hstack((xyz, ic))
 
     return xyz
@@ -268,7 +269,7 @@ def interp_points_axon(axonPoints, runningLens, secName, numCompartments, somaPo
         newy = fy(frac)
         newz = fz(frac)
 
-        segPos.append([newx, newy, newz])
+        segPos.append([newx, newy, newz]) # The zero references the diameter of the segment, which is ignored
 
 
     segPos = np.array(segPos)
@@ -425,6 +426,21 @@ def checkAxonsFirst(morphology):
 
     return axonFirst
 
+def getIds(nodeIds):
+
+    newidx = MPI.COMM_WORLD.Get_rank()
+    nranks = MPI.COMM_WORLD.Get_size()
+
+    numIds = len(nodeIds)
+    idsPerRank = int(np.ceil(numIds/nranks))
+
+    try:
+        ids = nodeIds[idsPerRank*newidx:idsPerRank*(newidx+1)]
+    except:
+        ids = nodeIds[idsPerRank*newidx:]
+
+    return ids
+
 def getPositions(path_to_simconfig, neurons_per_file, files_per_folder, path_to_positions_folder,replace_axons=True):
 
     '''
@@ -434,18 +450,12 @@ def getPositions(path_to_simconfig, neurons_per_file, files_per_folder, path_to_
     files_per_folder is the number of positions pickle files in each subfolder in segment_position_folder. This parameter is used in order to avoid stressing the file system with too many files in a given folder
     '''
 
-    newidx = MPI.COMM_WORLD.Get_rank()
+
 
     report, nodeIds = getSimulationInfo(path_to_simconfig)
     population = getPopulationObject(path_to_simconfig)
 
-    if len(nodeIds)/neurons_per_file > MPI.COMM_WORLD.Get_size():
-        raise AssertionError("Make sure that enough processes have been allocated to write position files")
-
-    try:
-        ids = nodeIds[neurons_per_file*newidx:neurons_per_file*(newidx+1)]
-    except:
-        ids = nodeIds[neurons_per_file*newidx:]
+    ids = getIds(nodeIds)
 
     if len(ids) == 0:
         return 1
@@ -463,6 +473,10 @@ def getPositions(path_to_simconfig, neurons_per_file, files_per_folder, path_to_
 
         somaPos = center[:,np.newaxis]
 
+        somaRadius = np.array([m.soma.max_distance])[np.newaxis] # Radius of the soma
+
+        somaPos = np.vstack((somaPos,somaRadius))
+
         if replace_axons: # If the axons are replaced by a stub axon, we need to get the positions thereof
 
             axonPoints, runningLens = get_axon_points(m,center) # Gets 3d positions and cumulative length of the axon
@@ -470,9 +484,9 @@ def getPositions(path_to_simconfig, neurons_per_file, files_per_folder, path_to_
         sections = np.unique(cols[np.where(cols[:,0]==i),1:].flatten()) # List of sections for the given neuron
 
         if idx ==0: # For the first cell, the array of positions xyz is initialized with the soma position
-            xyz = somaPos.reshape(3,1)
+            xyz = somaPos.reshape(4,1)
         else:
-            xyz = np.hstack((xyz,somaPos.reshape(3,1)))
+            xyz = np.hstack((xyz,somaPos.reshape(4,1)))
 
         try:
 
@@ -482,7 +496,7 @@ def getPositions(path_to_simconfig, neurons_per_file, files_per_folder, path_to_
 
         if numSomas > 1: # If there is more than one somatic segment, we assume that they all have the same position
             for k in np.arange(1,numSomas):
-                xyz = np.hstack((xyz,somaPos.reshape(3,1)))
+                xyz = np.hstack((xyz,somaPos.reshape(4,1)))
 
         morphSectionIdx = 0 # Index used if morphology file lists dendrites before axons
 
@@ -540,10 +554,12 @@ def getPositions(path_to_simconfig, neurons_per_file, files_per_folder, path_to_
                 else:
                     raise ValueError('Non-axonal and non-dendritic section found in morphology file')
 
+            diameters = np.zeros([segPos.shape[0],1])
+            segPos = np.hstack((segPos,diameters))
             xyz = np.hstack((xyz,segPos.T))
 
     newCols = getNewIndex(colIdx)
 
     positionsOut = pd.DataFrame(xyz,columns=newCols)
 
-    positionsOut.to_pickle(path_to_positions_folder+'/' + str(int(newidx / files_per_folder)) + '/positions'+str(newidx)+'.pkl')
+    positionsOut.to_pickle(path_to_positions_folder+'/' + str(int(MPI.COMM_WORLD.Get_rank() / files_per_folder)) + '/positions'+str(newidx)+'.pkl')

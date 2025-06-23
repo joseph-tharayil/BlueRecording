@@ -190,7 +190,28 @@ def averageCoeffs(positions,electrodePos,electrodeSize):
 
 def get_coeffs_pointSource(positions,electrodePos,sigma,size='NA'):
 
-    if size == 'NA':
+    if isinstance(size,bytes):
+        if 'test' in size.decode():
+            radius = float(size.decode().split('_')[-1])
+            distances = np.linalg.norm(positions.values - electrodePos[:, np.newaxis], axis=0)
+            distanceIdx = np.where(distances < radius)[0]
+
+            distances *= 1e-6
+            coeffs = 1 / (4 * np.pi * sigma * distances)
+            coeffs[distanceIdx] = 1
+            
+        elif size.decode()=='NA':
+            distances = np.linalg.norm(positions.values - electrodePos[:, np.newaxis], axis=0)
+
+            distances *= 1e-6  # Converts from um to m
+
+            coeffs = 1 / (4 * np.pi * sigma * distances)
+
+        else:
+            raise ValueError("Something is wrong with definition f electrode size")
+
+
+    elif size == 'NA':
 
         distances = np.linalg.norm(positions.values-electrodePos[:,np.newaxis],axis=0)
 
@@ -575,6 +596,10 @@ def getIdsAndPositions(ids, segment_position_folder,neurons_per_file, numFilesPe
                 positions = pd.concat((positions, newPositions),axis=1)
 
             g = np.unique(np.array(list(positions.columns))[:, 0])
+
+            g = g[np.isin(g,ids)]
+
+            positions = positions[g]
 
     return g, positions
 
