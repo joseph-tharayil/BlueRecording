@@ -106,7 +106,7 @@ def get_line_coeffs(startPos,endPos,electrodePos,sigma):
     return segCoeff
 
 
-def get_coeffs_lineSource(positions,columns,electrodePos,sigma):
+def get_coeffs_lineSource(positions,columns,electrodePos,sigma,minDistance=0):
 
     for i in range(len(positions.columns)-1):
 
@@ -117,6 +117,8 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma):
             distance = np.linalg.norm(somaPos-electrodePos)
 
             distance *= 1e-6 # Converts from um to m
+
+            distances[np.where(distances<minDistance)] = minDistance
 
             somaCoeff = 1/(4*np.pi*sigma*distance) # We treat the soma as a point, so the contribution at the electrode follows the formula for the potential from a point source
 
@@ -130,7 +132,13 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma):
 
         elif positions.columns[i][-1]==positions.columns[i+1][-1]: # Ensures we are not at the far end of a section
 
+            meanPosition = (positions.iloc[:,i]+positions.iloc[:,i+1])/2
+            maxCoefficient = get_coeffs_pointSource(meanPosition,electrodePos,sigma,minDistance)
+
             segCoeff = get_line_coeffs(positions.iloc[:,i],positions.iloc[:,i+1],electrodePos,sigma)
+
+            if segCoeff > maxCoefficient:
+                segCoeff = maxCoefficient
 
             coeffs = np.hstack((coeffs,segCoeff))
 
@@ -141,11 +149,15 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma):
 
     return coeffs
 
-def get_coeffs_pointSource(positions,electrodePos,sigma):
+def get_coeffs_pointSource(positions,electrodePos,sigma,minDistance=0):
+
+    # Sets minimum distance to be equal to peak of soma radius distribution
 
     distances = np.linalg.norm(positions.values-electrodePos[:,np.newaxis],axis=0)
 
     distances *= 1e-6 # Converts from um to m
+
+    distances[np.where(distances<minDistance)] = minDistance
 
     coeffs = 1/(4*np.pi*sigma*distances)
 
@@ -508,7 +520,7 @@ def getIdsAndPositions(ids, segment_position_folder,neurons_per_file, numFilesPe
 
         for index in range(filesPerRank):
             fileIdx = rank*filesPerRank + index
-            
+
             if fileIdx >= numPositionFiles:
                 continue
 
@@ -576,7 +588,7 @@ def get_objectiveCSD_array(electrodeType,objective_csd_array_indices,objectiveCS
 
     return arrayIdx, objectiveCSD_count
 
-def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per_file,files_per_folder,sigma=[0.277],path_to_fields=None,objective_csd_array_indices=None):
+def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per_file,files_per_folder,sigma=[0.277],path_to_fields=None,objective_csd_array_indices=None,minDistance=0):
 
     '''
     path_to_simconfig refers to the BlueConfig from the 1-timestep simulation used to get the segment positions
@@ -629,7 +641,7 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
 
         if electrodeType == 'LineSource':
 
-            coeffs = get_coeffs_lineSource(positions,newPositions.columns,epos,sigma[sigmaIdx])
+            coeffs = get_coeffs_lineSource(positions,newPositions.columns,epos,sigma[sigmaIdx],minDistance)
 
             if len(sigma) > 1:
                 sigmaIdx += 1
@@ -639,7 +651,7 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
 
             if electrodeType == 'PointSource':
 
-                coeffs = get_coeffs_pointSource(newPositions, epos, sigma[sigmaIdx])
+                coeffs = get_coeffs_pointSource(newPositions, epos, sigma[sigmaIdx],minDistance)
 
                 if len(sigma) > 1:
                     sigmaIdx += 1
