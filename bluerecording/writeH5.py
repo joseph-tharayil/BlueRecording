@@ -409,6 +409,20 @@ def get_coeffs_reciprocity(compartment_positions, path_to_fields):
 
     return outdf
 
+def get_coeffs_biotSavart(compartment_positions,center,electrodePos,mu0=1.256637061*10**−6):
+
+    displacementVector = center - electrodePos
+    distance = np.linalg.norm(displacementVector)
+    crossProduct = np.cross(compartment_positions,electrodePos)
+
+    coeffs = np.linalg.norm(crossProduct,axis=-1)*mu0/(4*np.pi*distance**3)
+
+    assert len(coeffs) == len(compartment_positions)
+
+    coeffs.columns = compartment_positions.columns
+
+    return coeffs
+
 def load_positions(segment_position_folder, filesPerFolder, numPositionFiles, rank):
 
     '''
@@ -561,7 +575,7 @@ def sort_electrode_names(electrodeKeys,population_name):
 
 def ElectrodeType(electrodeType):
 
-    if electrodeType == 'LineSource' or electrodeType == 'PointSource' or electrodeType == 'DipoleReciprocity' or electrodeType == 'Reciprocity' or electrodeType == 'ObjectiveCSD_Sphere' or electrodeType == 'ObjectiveCSD_Disk' or electrodeType == 'ObjectiveCSD_Plane':
+    if electrodeType == 'LineSource' or electrodeType == 'PointSource' or electrodeType == 'DipoleReciprocity' or electrodeType == 'Reciprocity' or electrodeType == 'ObjectiveCSD_Sphere' or electrodeType == 'ObjectiveCSD_Disk' or electrodeType == 'ObjectiveCSD_Plane' or electrodeType == 'Magnetic':
         return 0
     else:
         raise AssertionError("Electrode type not recognized")
@@ -655,6 +669,12 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
 
                 if len(sigma) > 1:
                     sigmaIdx += 1
+
+            elif electrodeType == 'Magnetic':
+
+                center = newPositions.mean(axis=1)
+
+                coeffs = get_coeffs_biotSavart(newPositions,center,epos)
 
             elif 'ObjectiveCSD' in electrodeType:
 
