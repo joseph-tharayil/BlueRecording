@@ -3,6 +3,7 @@ import bluepysnap as bp
 import json
 import numpy as np
 import os
+import warnings
 from voxcell.nexus.voxelbrain import Atlas
 from sklearn.decomposition import PCA
 import h5py
@@ -90,7 +91,7 @@ def processSubsampling(inputString):
 
     return np.arange(int(start), int(end))
 
-def getSimulationInfo(path_to_simconfig,coefficientFile=None):
+def getSimulationInfo(path_to_simconfig,coefficientFile=None,target=None):
 
     '''
     Returns the following:
@@ -111,6 +112,9 @@ def getSimulationInfo(path_to_simconfig,coefficientFile=None):
 
     else:
 
+        if target is not None:
+            raise AssertionError('If a sub-target is specified, reading the node ids from the weights file will cause errors')
+
         file = h5py.File(coefficientFile)
         population_name = getPopulationName(path_to_simconfig,coefficientFile)
 
@@ -119,6 +123,19 @@ def getSimulationInfo(path_to_simconfig,coefficientFile=None):
         report = None
 
     return report, nodeIds
+
+
+def getTargetIds(target,path_to_simconfig):
+
+    if target is not None:
+        sim = bp.Simulation(path_to_simconfig)
+        c = sim.circuit
+        targetIds = c.nodes.ids(target).get_ids()
+
+    else:
+        targetIds = nodeIds
+
+    return targetIds
 
 def getPopulationObject(path_to_simconfig):
 

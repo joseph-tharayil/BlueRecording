@@ -182,8 +182,6 @@ def averageCoeffs(positions,electrodePos,electrodeSize):
     # Average over sphere and normalize
     avg_integrals = dist.mean(axis=0)
 
-    print(avg_integrals)
-
     volume = (4 / 3) * np.pi * electrodeSize ** 3
 
     return 1/avg_integrals #/ volume
@@ -546,7 +544,7 @@ def getCurrentIds(positions,iteration,iterationSize):
 
     return node_ids
 
-def getIdsAndPositions(ids, segment_position_folder,neurons_per_file, numFilesPerFolder):
+def getIdsAndPositions(ids, segment_position_folder,neurons_per_file, numFilesPerFolder,targetIds):
 
     '''
     For the current rank, selects node_ids for which to calculate the coefficients, and returns their positions
@@ -580,6 +578,7 @@ def getIdsAndPositions(ids, segment_position_folder,neurons_per_file, numFilesPe
 
         filesPerRank = int(np.ceil(numPositionFiles/nranks))
 
+
         for index in range(filesPerRank):
             fileIdx = rank*filesPerRank + index
             
@@ -597,7 +596,7 @@ def getIdsAndPositions(ids, segment_position_folder,neurons_per_file, numFilesPe
 
             g = np.unique(np.array(list(positions.columns))[:, 0])
 
-            g = g[np.isin(g,ids)]
+            g = g[np.isin(g,targetIds)]
 
             positions = positions[g]
 
@@ -654,7 +653,7 @@ def get_objectiveCSD_array(electrodeType,objective_csd_array_indices,objectiveCS
 
     return arrayIdx, objectiveCSD_count
 
-def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per_file,files_per_folder,sigma=[0.277],path_to_fields=None,objective_csd_array_indices=None):
+def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per_file,files_per_folder,sigma=[0.277],target=None,path_to_fields=None,objective_csd_array_indices=None):
 
     '''
     path_to_simconfig refers to the BlueConfig from the 1-timestep simulation used to get the segment positions
@@ -664,13 +663,19 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
     files_per_folder is the number of positions pickle files in each subfolder in segment_position_folder. This is also specified by the user in getPositions()
     '''
 
-    _, allNodeIds = getSimulationInfo(path_to_simconfig,outputfile)
+    _, allNodeIds = getSimulationInfo(path_to_simconfig,outputfile,target)
     population_name = getPopulationName(path_to_simconfig,outputfile)
 
 
     h5 = h5py.File(outputfile, 'a',driver='mpio',comm=MPI.COMM_WORLD)
 
-    node_ids, positions = getIdsAndPositions(allNodeIds, segment_position_folder,neurons_per_file, files_per_folder)
+    if target is not None:
+
+        targetIds = getTargetIds(target,path_to_simconfig)
+    else:
+        targetIds = allNodeIds
+
+    node_ids, positions = getIdsAndPositions(allNodeIds, segment_position_folder,neurons_per_file, files_per_folder,targetIds)
 
     if node_ids is None:
 

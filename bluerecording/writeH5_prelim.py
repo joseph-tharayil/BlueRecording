@@ -251,13 +251,7 @@ def initializeH5File(path_to_simconfig,outputfile,electrode_csv,target=None):
 
     circuitpath = getCircuitPath(path_to_simconfig)
 
-    if target is not None:
-        sim = bp.Simulation(path_to_simconfig)
-        c = sim.circuit
-        targetIds = c.nodes.ids(target).get_ids()
-
-    else:
-        targetIds = nodeIds
+    targetIds = getTargetIds(target,path_to_simconfig)
 
     data = getMinimalReport(report, targetIds)
 

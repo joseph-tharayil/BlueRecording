@@ -441,7 +441,7 @@ def getIds(nodeIds):
 
     return ids
 
-def getPositions(path_to_simconfig, neurons_per_file, files_per_folder, path_to_positions_folder,replace_axons=True):
+def getPositions(path_to_simconfig, neurons_per_file, files_per_folder, path_to_positions_folder,target=None,replace_axons=True):
 
     '''
     path_to_simconfig refers to the BlueConfig from the 1-timestep simulation used to get the segment positions
@@ -455,7 +455,9 @@ def getPositions(path_to_simconfig, neurons_per_file, files_per_folder, path_to_
     report, nodeIds = getSimulationInfo(path_to_simconfig)
     population = getPopulationObject(path_to_simconfig)
 
-    ids = getIds(nodeIds)
+    targetIds = getTargetIds(target, path_to_simconfig)
+
+    ids = getIds(targetIds)
 
     if len(ids) == 0:
         return 1
@@ -562,4 +564,6 @@ def getPositions(path_to_simconfig, neurons_per_file, files_per_folder, path_to_
 
     positionsOut = pd.DataFrame(xyz,columns=newCols)
 
-    positionsOut.to_pickle(path_to_positions_folder+'/' + str(int(MPI.COMM_WORLD.Get_rank() / files_per_folder)) + '/positions'+str(newidx)+'.pkl')
+    newidx = MPI.COMM_WORLD.Get_rank()
+
+    positionsOut.to_pickle(path_to_positions_folder+'/' + str(int(newidx / files_per_folder)) + '/positions'+str(newidx)+'.pkl')
