@@ -104,21 +104,6 @@ def test_get_position_file_name(filesPerFolder, numPositionFiles):
 
     assert get_position_file_name(filesPerFolder,numPositionFiles,rank)=='1/positions53.pkl'
 
-def test_get_indices(numPositionFiles):
-
-    rank = 1
-    nranks = 400
-    neuronsPerFile = 1000
-
-    iteration, iterationSize = get_indices(rank, nranks, neuronsPerFile, numPositionFiles)
-
-    assert iterationSize == 250
-    assert iteration == 0
-
-    with pytest.raises(AssertionError):
-        nranks = 2
-        iteration, iterationSize = get_indices(rank, nranks, neuronsPerFile, numPositionFiles)
-
 
 def test_getSegmentMidpts(positions,gids):
 

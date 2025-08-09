@@ -106,7 +106,7 @@ def get_line_coeffs(startPos,endPos,electrodePos,sigma):
     return segCoeff
 
 
-def get_coeffs_lineSource(positions,columns,electrodePos,sigma):
+def get_coeffs_lineSource(positions,columns,electrodePos,sigma,minDistance=0):
 
     for i in range(len(positions.columns)-1):
 
@@ -117,6 +117,8 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma):
             distance = np.linalg.norm(somaPos-electrodePos)
 
             distance *= 1e-6 # Converts from um to m
+
+            distances[np.where(distances<minDistance)] = minDistance
 
             somaCoeff = 1/(4*np.pi*sigma*distance) # We treat the soma as a point, so the contribution at the electrode follows the formula for the potential from a point source
 
@@ -130,7 +132,13 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma):
 
         elif positions.columns[i][-1]==positions.columns[i+1][-1]: # Ensures we are not at the far end of a section
 
+            meanPosition = (positions.iloc[:,i]+positions.iloc[:,i+1])/2
+            maxCoefficient = get_coeffs_pointSource(meanPosition,electrodePos,sigma,minDistance)
+
             segCoeff = get_line_coeffs(positions.iloc[:,i],positions.iloc[:,i+1],electrodePos,sigma)
+
+            if segCoeff > maxCoefficient:
+                segCoeff = maxCoefficient
 
             coeffs = np.hstack((coeffs,segCoeff))
 
@@ -141,11 +149,15 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma):
 
     return coeffs
 
-def get_coeffs_pointSource(positions,electrodePos,sigma):
+def get_coeffs_pointSource(positions,electrodePos,sigma,minDistance=0):
+
+    # Sets minimum distance to be equal to peak of soma radius distribution
 
     distances = np.linalg.norm(positions.values-electrodePos[:,np.newaxis],axis=0)
 
     distances *= 1e-6 # Converts from um to m
+
+    distances[np.where(distances<minDistance)] = minDistance
 
     coeffs = 1/(4*np.pi*sigma*distances)
 
@@ -428,6 +440,7 @@ def get_coeffs_reciprocity(compartment_positions, path_to_fields):
 
     return outdf
 
+
 def load_positions(segment_position_folder, filesPerFolder, numPositionFiles, rank):
 
     '''
@@ -476,22 +489,6 @@ def getSegmentMidpts(positions,node_ids):
     return newPos
 
 
-def get_indices(rank, nranks,neurons_per_file,numPositionFiles):
-
-    iterationsPerFile = int(nranks/numPositionFiles) # How many ranks is any position file divided among
-
-    if iterationsPerFile < 1:
-        raise AssertionError("One rank cannot process more than one position file. Either increase the number of ranks or increase the number of neurons per file if necessary")
-
-    iterationSize = int(np.ceil(neurons_per_file/iterationsPerFile))  # Number of node_ids processed on this rank
-
-    if iterationSize < 1:
-        raise AssertionError("Each rank must process at least one neuron. Either decrease the number of ranks or decrease the number of neurons per file if necessary")
-
-    iteration = int(rank/numPositionFiles)
-
-    return iteration, iterationSize
-
 def get_position_file_name(filesPerFolder, numPositionFiles, rank):
 
     index = int(rank % numPositionFiles)
@@ -528,15 +525,47 @@ def getIdsAndPositions(ids, segment_position_folder,neurons_per_file, numFilesPe
     rank = MPI.COMM_WORLD.Get_rank()
     nranks = MPI.COMM_WORLD.Get_size()
 
+
     numPositionFiles = np.ceil(len(ids)/neurons_per_file)
 
-    positions = load_positions(segment_position_folder,numFilesPerFolder, numPositionFiles, rank)
+    iterationsPerFile = int(nranks/numPositionFiles) # How many ranks is any position file divided among
 
-    iteration, iterationSize = get_indices(rank, nranks,neurons_per_file,numPositionFiles)
+    if iterationsPerFile >= 1:
 
-    g = getCurrentIds(positions,iteration,iterationSize)
+        iterationSize = int(np.ceil(neurons_per_file / iterationsPerFile))  # Number of node_ids processed on this rank
 
-    positions = positions[g] # Gets positions for specific gids
+        if iterationSize < 1:
+            raise AssertionError(
+                "Each rank must process at least one neuron. Either decrease the number of ranks or decrease the number of neurons per file if necessary")
+
+        iteration = int(rank / numPositionFiles)
+
+        positions = load_positions(segment_position_folder,numFilesPerFolder, numPositionFiles, rank)
+
+        g = getCurrentIds(positions,iteration,iterationSize)
+
+        positions = positions[g] # Gets positions for specific gids
+
+    else:
+
+        filesPerRank = int(np.ceil(numPositionFiles/nranks))
+
+        for index in range(filesPerRank):
+            fileIdx = rank*filesPerRank + index
+
+            if fileIdx >= numPositionFiles:
+                continue
+
+            folder = int(fileIdx/numFilesPerFolder)
+
+            newPositions = pd.read_pickle(segment_position_folder+'/'+str(folder)+'/positions'+str(fileIdx)+'.pkl')
+
+            if index == 0:
+                positions = newPositions
+            else:
+                positions = pd.concat((positions, newPositions),axis=1)
+
+            g = np.unique(np.array(list(positions.columns))[:, 0])
 
     return g, positions
 
@@ -595,7 +624,7 @@ def get_objectiveCSD_array(electrodeType,objective_csd_array_indices,objectiveCS
 
     return arrayIdx, objectiveCSD_count
 
-def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per_file,files_per_folder,sigma=[0.277],path_to_fields=None,objective_csd_array_indices=None):
+def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per_file,files_per_folder,sigma=[0.277],path_to_fields=None,objective_csd_array_indices=None,minDistance=0):
 
     '''
     path_to_simconfig refers to the BlueConfig from the 1-timestep simulation used to get the segment positions
@@ -605,13 +634,17 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
     files_per_folder is the number of positions pickle files in each subfolder in segment_position_folder. This is also specified by the user in getPositions()
     '''
 
-    r, allNodeIds = getSimulationInfo(path_to_simconfig)
-    population_name = getPopulationName(path_to_simconfig)
+    _, allNodeIds = getSimulationInfo(path_to_simconfig,outputfile)
+    population_name = getPopulationName(path_to_simconfig,outputfile)
 
 
     h5 = h5py.File(outputfile, 'a',driver='mpio',comm=MPI.COMM_WORLD)
 
     node_ids, positions = getIdsAndPositions(allNodeIds, segment_position_folder,neurons_per_file, files_per_folder)
+
+    if node_ids is None:
+
+        return 1
 
     if len(node_ids)==0:
 
@@ -621,12 +654,7 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
 
         return 1
 
-
-    data = getMinimalReport(r,node_ids) # Loads compartment report for selected node_ids
-
-
-    columns = data.columns
-
+    newPositions = getSegmentMidpts(positions,node_ids) # For most methods, we need the segment centers, not the endpoints.
 
     coeffList = []
 
@@ -649,22 +677,26 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
 
         if electrodeType == 'LineSource':
 
-            coeffs = get_coeffs_lineSource(positions,columns,epos,sigma[sigmaIdx])
+            coeffs = get_coeffs_lineSource(positions,newPositions.columns,epos,sigma[sigmaIdx],minDistance)
 
             if len(sigma) > 1:
                 sigmaIdx += 1
 
         else:
 
-            newPositions = getSegmentMidpts(positions,node_ids) # For other methods, we need the segment centers, not the endpoints
-
 
             if electrodeType == 'PointSource':
 
-                coeffs = get_coeffs_pointSource(newPositions, epos, sigma[sigmaIdx])
+                coeffs = get_coeffs_pointSource(newPositions, epos, sigma[sigmaIdx],minDistance)
 
                 if len(sigma) > 1:
                     sigmaIdx += 1
+
+            elif electrodeType == 'Magnetic':
+
+                center = newPositions.mean(axis=1)
+
+                coeffs = get_coeffs_biotSavart(newPositions,center,epos)
 
             elif 'ObjectiveCSD' in electrodeType:
 

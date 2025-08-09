@@ -123,9 +123,23 @@ def test_getSimulationInfo(path_to_simconfig_with_output):
             
     assert nodeIds == 0
 
+def test_getSimulationInfo_fromCoeffFile(writeNeuron):
+
+    path_to_coeff_file = writeNeuron[0]
+
+    report, nodeIds = getSimulationInfo(None,path_to_coeff_file)
+
+    np.testing.assert_equal(nodeIds,[1,2])
+
+    assert report is None
+
 def test_getPopulationName(path_to_simconfig_with_output):
 
     assert getPopulationName(path_to_simconfig_with_output)=='S1nonbarrel_neurons'
+
+def test_getPopulationName_fromCoeffFile(writeNeuron):
+
+    assert getPopulationName(None,writeNeuron[0]) == 'testPopulation'
 
 def test_getCircuitPath(path_to_simconfig_with_output,expected_circuit_path):
 
