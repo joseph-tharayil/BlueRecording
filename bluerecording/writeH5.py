@@ -141,85 +141,13 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma):
 
     return coeffs
 
-def averageCoeffs(positions,electrodePos,electrodeSize):
+def get_coeffs_pointSource(positions,electrodePos,sigma):
 
-    '''
-    Performs random sampling over the sphere to calculate average distance from point to surface
-    '''
+    distances = np.linalg.norm(positions.values-electrodePos[:,np.newaxis],axis=0)
 
-    seed = 42
+    distances *= 1e-6 # Converts from um to m
 
-    N = 10 # Number of sample points
-
-    a_array = positions-electrodePos[:,np.newaxis]
-
-    np.random.seed(seed)
-
-    # Sample N points uniformly on the sphere using spherical coordinates
-    u = np.random.rand(N)
-    v = np.random.rand(N)
-    theta = np.arccos(1 - 2 * u)  # θ ∈ [0, π]
-    phi = 2 * np.pi * v  # φ ∈ [0, 2π)
-
-    sin_theta = np.sin(theta)
-
-    # Convert to Cartesian coordinates
-    x = electrodeSize * sin_theta * np.cos(phi)
-    y = electrodeSize * sin_theta * np.sin(phi)
-    z = electrodeSize * np.cos(theta)
-
-    # Broadcast particle positions (3,N) and a_array (3,M) to compute distances
-    r_samples = np.stack([x, y, z], axis=0)  # shape (3,N)
-    a_array = np.atleast_2d(a_array)  # shape (3,M)
-
-
-    diff = r_samples[:, :, None] - a_array[:, None, :]  # shape (3, N, M)
-
-    dist = np.linalg.norm(diff, axis=0)  # shape (N,M)
-    # Compute integrand: r^2 * sinθ / |r - a|
-    integrand_vals = electrodeSize ** 2 * sin_theta[:,None] / dist  # shape (N,M)
-
-    # Average over sphere and normalize
-    avg_integrals = dist.mean(axis=0)
-
-    volume = (4 / 3) * np.pi * electrodeSize ** 3
-
-    return 1/avg_integrals #/ volume
-
-def get_coeffs_pointSource(positions,electrodePos,sigma,size='NA'):
-
-    if isinstance(size,bytes):
-        if 'test' in size.decode():
-            radius = float(size.decode().split('_')[-1])
-            distances = np.linalg.norm(positions.values - electrodePos[:, np.newaxis], axis=0)
-            distanceIdx = np.where(distances < radius)[0]
-
-            distances *= 1e-6
-            coeffs = 1 / (4 * np.pi * sigma * distances)
-            coeffs[distanceIdx] = 1
-            
-        elif size.decode()=='NA':
-            distances = np.linalg.norm(positions.values - electrodePos[:, np.newaxis], axis=0)
-
-            distances *= 1e-6  # Converts from um to m
-
-            coeffs = 1 / (4 * np.pi * sigma * distances)
-
-        else:
-            raise ValueError("Something is wrong with definition f electrode size")
-
-
-    elif size == 'NA':
-
-        distances = np.linalg.norm(positions.values-electrodePos[:,np.newaxis],axis=0)
-
-        distances *= 1e-6  # Converts from um to m
-
-        coeffs = 1 / (4 * np.pi * sigma * distances)
-
-    else:
-
-        coeffs = 1/(4*np.pi*sigma)*averageCoeffs(positions.values*1e-6,electrodePos*1e-6,size*1e-6)
+    coeffs = 1/(4*np.pi*sigma*distances)
 
     coeffs *= 1e-9 # Converts from nA to A
 
@@ -581,7 +509,7 @@ def getIdsAndPositions(ids, segment_position_folder,neurons_per_file, numFilesPe
 
         for index in range(filesPerRank):
             fileIdx = rank*filesPerRank + index
-            
+
             if fileIdx >= numPositionFiles:
                 continue
 
@@ -626,7 +554,11 @@ def sort_electrode_names(electrodeKeys,population_name):
 
 def ElectrodeType(electrodeType):
 
-    if electrodeType == 'LineSource' or electrodeType == 'PointSource' or electrodeType == 'DipoleReciprocity' or electrodeType == 'Reciprocity' or electrodeType == 'ObjectiveCSD_Sphere' or electrodeType == 'ObjectiveCSD_Disk' or electrodeType == 'ObjectiveCSD_Plane':
+    validElectrodeTypes = ['LineSource','PointSource','DipoleReciprocity','Reciprocity',
+    'ObjectiveCSD_Sphere','ObjectiveCSD_Disk','ObjectiveCSD_Plane',
+    'MEG_x','MEG_y','MEG_z']
+
+    if electrodeType in validElectrodeTypes:
         return 0
     else:
         raise AssertionError("Electrode type not recognized")
@@ -758,6 +690,24 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
                     center = newPositions.mean(axis=1)
 
                     coeffs = get_coeffs_dipoleReciprocity(newPositions,path_to_fields[reciprocityIdx],center)
+
+                elif electrodeType == 'MEG_x':
+
+                    center = newPositions.mean(axis=1)
+
+                    coeffs = get_coeffs_MEG_x(newPositions,path_to_fields[reciprocityIdx],center)
+
+                elif electrodeType == 'MEG_y':
+
+                    center = newPositions.mean(axis=1)
+
+                    coeffs = get_coeffs_MEG_y(newPositions,path_to_fields[reciprocityIdx],center)
+
+                elif electrodeType == 'MEG_z':
+
+                    center = newPositions.mean(axis=1)
+
+                    coeffs = get_coeffs_MEG_z(newPositions,path_to_fields[reciprocityIdx],center)
 
                 else:
 

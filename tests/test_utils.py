@@ -80,7 +80,7 @@ def test_process_writeH5_inputs():
     outputfile = 'outputfile'
     neurons_per_file = 1000
     files_per_folder = 50
-    
+
     sysArgVBase = ['functionName',path_to_simconfig,segment_position_folder,outputfile,neurons_per_file,files_per_folder]
 
     sigma, path_to_h5, objective_csd_array_indices = process_writeH5_inputs(sysArgVBase)
@@ -90,7 +90,7 @@ def test_process_writeH5_inputs():
     assert objective_csd_array_indices is None
 
     sigmaString = '0.7'
-    sysArgV = ['functionName',path_to_simconfig,segment_position_folder,outputfile,neurons_per_file,files_per_folder,sigmaString] 
+    sysArgV = ['functionName',path_to_simconfig,segment_position_folder,outputfile,neurons_per_file,files_per_folder,sigmaString]
     sigma, path_to_h5, objective_csd_array_indices = process_writeH5_inputs(sysArgV)
     assert sigma == [0.7]
     assert path_to_h5 is None
@@ -103,7 +103,7 @@ def test_process_writeH5_inputs():
     assert path_to_h5 == ['aaa.h5']
     assert objective_csd_array_indices is None
 
-    sysArgV = ['functionName',path_to_simconfig,segment_position_folder,outputfile,neurons_per_file,files_per_folder,sigmaString,path] 
+    sysArgV = ['functionName',path_to_simconfig,segment_position_folder,outputfile,neurons_per_file,files_per_folder,sigmaString,path]
     sigma, path_to_h5, objective_csd_array_indices = process_writeH5_inputs(sysArgV)
     assert sigma == [0.7]
     assert path_to_h5 == ['aaa.h5']
@@ -111,16 +111,16 @@ def test_process_writeH5_inputs():
 
 
     samplingString = 'objective_csd_array_indices 5:9 9:14'
-    sysArgV = ['functionName',path_to_simconfig,segment_position_folder,outputfile,neurons_per_file,files_per_folder,path,samplingString] 
+    sysArgV = ['functionName',path_to_simconfig,segment_position_folder,outputfile,neurons_per_file,files_per_folder,path,samplingString]
     sigma, path_to_h5, objective_csd_array_indices = process_writeH5_inputs(sysArgV)
     assert sigma == [0.277]
     assert path_to_h5 == ['aaa.h5']
     assert objective_csd_array_indices == ['5:9','9:14']
 
 def test_getSimulationInfo(path_to_simconfig_with_output):
-    
+
     report, nodeIds = getSimulationInfo(path_to_simconfig_with_output)
-            
+
     assert nodeIds == 0
 
 def test_getSimulationInfo_fromCoeffFile(writeNeuron):
@@ -146,18 +146,17 @@ def test_getCircuitPath(path_to_simconfig_with_output,expected_circuit_path):
     assert getCircuitPath(path_to_simconfig_with_output)==expected_circuit_path
 
 def test_atlasInfo(path_to_simconfig_with_atlas):
-    
+
     electrodesOut = np.array([[0,0,0],[0,0,1]])
-    
+
     regionList, layerList = getAtlasInfo(path_to_simconfig_with_atlas,electrodesOut)
-    
+
     assert regionList == ['Outside','Outside']
     assert layerList == ['Outside','Outside']
-    
+
     electrode_in = np.array([[3251.37,-777,-2178.89]])
-    
+
     regionList, layerList = getAtlasInfo(path_to_simconfig_with_atlas,electrode_in)
-    
+
     assert regionList == ['S1FL']
     assert layerList == ['L5']
-
