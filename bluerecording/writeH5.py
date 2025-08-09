@@ -106,7 +106,7 @@ def get_line_coeffs(startPos,endPos,electrodePos,sigma):
     return segCoeff
 
 
-def get_coeffs_lineSource(positions,columns,electrodePos,sigma):
+def get_coeffs_lineSource(positions,columns,electrodePos,sigma,minDistance=0):
 
     for i in range(len(positions.columns)-1):
 
@@ -117,6 +117,8 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma):
             distance = np.linalg.norm(somaPos-electrodePos)
 
             distance *= 1e-6 # Converts from um to m
+
+            distances[np.where(distances<minDistance)] = minDistance
 
             somaCoeff = 1/(4*np.pi*sigma*distance) # We treat the soma as a point, so the contribution at the electrode follows the formula for the potential from a point source
 
@@ -130,7 +132,13 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma):
 
         elif positions.columns[i][-1]==positions.columns[i+1][-1]: # Ensures we are not at the far end of a section
 
+            meanPosition = (positions.iloc[:,i]+positions.iloc[:,i+1])/2
+            maxCoefficient = get_coeffs_pointSource(meanPosition,electrodePos,sigma,minDistance)
+
             segCoeff = get_line_coeffs(positions.iloc[:,i],positions.iloc[:,i+1],electrodePos,sigma)
+
+            if segCoeff > maxCoefficient:
+                segCoeff = maxCoefficient
 
             coeffs = np.hstack((coeffs,segCoeff))
 
@@ -141,11 +149,15 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma):
 
     return coeffs
 
-def get_coeffs_pointSource(positions,electrodePos,sigma):
+def get_coeffs_pointSource(positions,electrodePos,sigma,minDistance=0):
+
+    # Sets minimum distance to be equal to peak of soma radius distribution
 
     distances = np.linalg.norm(positions.values-electrodePos[:,np.newaxis],axis=0)
 
     distances *= 1e-6 # Converts from um to m
+
+    distances[np.where(distances<minDistance)] = minDistance
 
     coeffs = 1/(4*np.pi*sigma*distances)
 
@@ -397,6 +409,7 @@ def get_coeffs_reciprocity(compartment_positions, path_to_fields):
 
     return outdf
 
+
 def load_positions(segment_position_folder, filesPerFolder, numPositionFiles, rank):
 
     '''
@@ -613,6 +626,10 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
 
         return 1
 
+    if node_ids is None:
+
+        return 1
+
     if len(node_ids)==0:
 
         warnings.warn('No nodes are processed on rank '+str(MPI.COMM_WORLD.Get_rank())+' Either increase or reduce the number of ranks such that it is an integer multiple of the number of position files')
@@ -644,7 +661,7 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
 
         if electrodeType == 'LineSource':
 
-            coeffs = get_coeffs_lineSource(positions,newPositions.columns,epos,sigma[sigmaIdx])
+            coeffs = get_coeffs_lineSource(positions,newPositions.columns,epos,sigma[sigmaIdx],minDistance)
 
             if len(sigma) > 1:
                 sigmaIdx += 1
@@ -654,12 +671,16 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
 
             if electrodeType == 'PointSource':
 
-                electrodeSize = h5['electrodes'][str(electrode)]['size'][()] # Gets size for each electrode
-
-                coeffs = get_coeffs_pointSource(newPositions, epos, sigma[sigmaIdx],electrodeSize)
+                coeffs = get_coeffs_pointSource(newPositions, epos, sigma[sigmaIdx],minDistance)
 
                 if len(sigma) > 1:
                     sigmaIdx += 1
+
+            elif electrodeType == 'Magnetic':
+
+                center = newPositions.mean(axis=1)
+
+                coeffs = get_coeffs_biotSavart(newPositions,center,epos)
 
             elif 'ObjectiveCSD' in electrodeType:
 
