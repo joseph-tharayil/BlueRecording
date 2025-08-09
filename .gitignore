@@ -8,6 +8,11 @@ positions_all_new_big/
 networks/
 network/
 examples/allen/data/simulation/configuration/components
+<<<<<<< HEAD
+examples/**/data/
+!examples/compare-to-reference-solutions/data
+=======
+>>>>>>> feature/magneticRecording
 bkg_inputs/
 atlas/
 reporting/

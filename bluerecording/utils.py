@@ -3,22 +3,23 @@ import bluepysnap as bp
 import json
 import numpy as np
 import os
+import warnings
 from voxcell.nexus.voxelbrain import Atlas
 from sklearn.decomposition import PCA
 import h5py
 
 def process_writeH5_inputs(inputs):
 
-    path_to_fields = None 
+    path_to_fields = None
     sigma = [0.277] # Default conductance, in S/m
     objective_csd_array_indices = None # Indices of electrodes to be used f
 
-    if len(inputs)>6: # Specify conductance for analytic electrodes, or a potential field for reciprocity electrodes, or radius for spherical/disk objective csd, or electrode subsampling for disc objective csd. 
+    if len(inputs)>6: # Specify conductance for analytic electrodes, or a potential field for reciprocity electrodes, or radius for spherical/disk objective csd, or electrode subsampling for disc objective csd.
 
         for inputElement in inputs[6:]:
-        
+
             inputType, inputList = splitInput(inputElement)
-    
+
             if inputType == 'conductance':
                 sigma = inputList
             elif inputType == 'ObjectiveCSD_Idx':
@@ -35,7 +36,7 @@ def process_inputList(inputList):
     '''
 
     inputType = None
-    
+
     if inputList[0] == 'objective_csd_array_indices':
         inputType = 'ObjectiveCSD_Idx'
         inputList = inputList[1:]
@@ -90,7 +91,7 @@ def processSubsampling(inputString):
 
     return np.arange(int(start), int(end))
 
-def getSimulationInfo(path_to_simconfig,coefficientFile=None):
+def getSimulationInfo(path_to_simconfig,coefficientFile=None,target=None):
 
     '''
     Returns the following:
@@ -99,17 +100,20 @@ def getSimulationInfo(path_to_simconfig,coefficientFile=None):
     '''
 
     if path_to_simconfig is not None:
-    
+
         rSim = bp.Simulation(path_to_simconfig)
         r = rSim.reports[list(rSim.reports.keys())[0]] # We assume that the compartment report is the only report produced by the simulation
-    
+
         population_name = getPopulationName(path_to_simconfig)
-    
+
         report = r[population_name]
-        
+
         nodeIds = report.node_ids
 
     else:
+
+        if target is not None:
+            raise AssertionError('If a sub-target is specified, reading the node ids from the weights file will cause errors')
 
         file = h5py.File(coefficientFile)
         population_name = getPopulationName(path_to_simconfig,coefficientFile)
@@ -120,13 +124,26 @@ def getSimulationInfo(path_to_simconfig,coefficientFile=None):
 
     return report, nodeIds
 
+
+def getTargetIds(target,path_to_simconfig):
+
+    if target is not None:
+        sim = bp.Simulation(path_to_simconfig)
+        c = sim.circuit
+        targetIds = c.nodes.ids(target).get_ids()
+
+    else:
+        targetIds = nodeIds
+
+    return targetIds
+
 def getPopulationObject(path_to_simconfig):
 
     '''
     Returns the following:
     'population': SONATA population object
     '''
-    
+
     rSim = bp.Simulation(path_to_simconfig)
 
     population_name = getPopulationName(path_to_simconfig)
@@ -142,7 +159,7 @@ def getPopulationName(path_to_simconfig,coefficientFile=None):
 
         rSim = bp.Simulation(path_to_simconfig)
         r = rSim.reports[list(rSim.reports.keys())[0]] # We assume that the compartment report is the only report produced by the simulation
-    
+
         population_name = r.population_names[0]
 
     else: # Reads name of population from coefficient file
@@ -173,9 +190,9 @@ def concretize_path(known_path, newpath):
         newpath = path_to_dir+newpath
 
     newpath = os.path.normpath(newpath)
-    
+
     return newpath
-    
+
 
 def getCircuitPath(path_to_simconfig):
 
@@ -186,9 +203,9 @@ def getCircuitPath(path_to_simconfig):
     with open(path_to_simconfig) as f:
 
         circuitpath = json.load(f)['network']
-    
+
     circuitpath =  concretize_path(path_to_simconfig, circuitpath)
-    
+
 
     return circuitpath
 
@@ -201,7 +218,7 @@ def getMinimalReport(report,node_ids):
 
 
     data = report.get(group=node_ids,t_start=0,t_stop=report.frame_report.dt)
-    
+
     data.columns = data.columns.rename('id',level=0)
     data.columns = data.columns.rename('section',level=1)
 
@@ -210,9 +227,9 @@ def getMinimalReport(report,node_ids):
 def getAtlasInfo(path_to_simconfig,electrodePositions):
 
     '''
-    For an array of electrode positions, returns brain region and layer in which each electrode is located. 
+    For an array of electrode positions, returns brain region and layer in which each electrode is located.
     '''
-    
+
     circuitpath = getCircuitPath(path_to_simconfig)
 
     with open(circuitpath) as f:
@@ -251,7 +268,7 @@ def alignmentInfo(path_to_simconfig,target):
     '''
     Gets loction and angle information in order to align a probe with long axis of of the specified target (typically a cortical column)
     '''
-    
+
     population = getPopulationObject(path_to_simconfig)
 
     somaPos = population.get(properties=['x','y','z'],group=target) # Gets soma position
@@ -266,4 +283,3 @@ def alignmentInfo(path_to_simconfig,target):
     azimuth = np.arctan2(main_axis[1],main_axis[0])
 
     return center, azimuth, elevation
-    

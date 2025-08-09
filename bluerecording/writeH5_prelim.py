@@ -213,7 +213,7 @@ def process_objectiveCSD(electrodeType):
 
         return objectiveDict
 
-def initializeH5File(path_to_simconfig,outputfile,electrode_csv):
+def initializeH5File(path_to_simconfig,outputfile,electrode_csv,target=None):
 
     '''
     path_to_simconfig refers to the simulation_config from the 1-timestep simulation used to get the segment positions
@@ -227,7 +227,9 @@ def initializeH5File(path_to_simconfig,outputfile,electrode_csv):
 
     circuitpath = getCircuitPath(path_to_simconfig)
 
-    data = getMinimalReport(report, nodeIds)
+    targetIds = getTargetIds(target,path_to_simconfig)
+
+    data = getMinimalReport(report, targetIds)
 
 
     sectionIdsFrame = data.columns.to_frame()
@@ -244,7 +246,7 @@ def initializeH5File(path_to_simconfig,outputfile,electrode_csv):
     h5id.set_mdc_config(cc)
     #####
 
-    h5 = ElectrodeFileStructure(h5file, nodeIds, electrodes, population_name, circuit=circuitpath,version=pkg_resources.get_distribution("bluerecording").version,date=str(datetime.date.today())) # Initializes fields in h5 file
+    h5 = ElectrodeFileStructure(h5file, targetIds, electrodes, population_name, circuit=circuitpath,version=pkg_resources.get_distribution("bluerecording").version,date=str(datetime.date.today())) # Initializes fields in h5 file
 
 
     write_all_neuron(sectionIdsFrame, population_name, h5, h5file, electrodes)  # For each node_id, initializes coefficient field in h5 file

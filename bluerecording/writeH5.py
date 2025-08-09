@@ -366,37 +366,6 @@ def get_coeffs_dipoleReciprocity(compartment_positions, path_to_fields,center):
 
     return outdf
 
-def get_coeffs_MEG(compartment_positions,electrode_position, center):
-
-    mu0 = 4*np.pi*1e-7
-
-    positionColumns = compartment_positions.columns
-    compartment_positions = compartment_positions.values
-
-    compartment_positions = compartment_positions * 1e-6 # Converts um to m, to match the potential field file
-
-    center = center * 1e-6
-
-    compartment_positions_New = compartment_positions - center.values[:,np.newaxis]
-
-    displacementVector = center - electrode_position
-
-    megCoeffs = mu0/(4*np.pi)* np.cross(compartment_positions_New,displacementVector)/np.linalg.norm(displacementVector,axis=1)**3
-
-    return megCoeffs
-
-def get_coeffs_MEG_x(compartment_positions,electrode_position, center):
-
-    return get_coeffs_MEG(compartment_positions,electrode_position, center)[:,0]
-
-def get_coeffs_MEG_y(compartment_positions,electrode_position, center):
-
-    return get_coeffs_MEG(compartment_positions,electrode_position, center)[:,1]
-
-def get_coeffs_MEG_z(compartment_positions,electrode_position, center):
-
-    return get_coeffs_MEG(compartment_positions,electrode_position, center)[:,2]
-
 def get_coeffs_reciprocity(compartment_positions, path_to_fields):
 
     '''
@@ -516,7 +485,7 @@ def getCurrentIds(positions,iteration,iterationSize):
 
     return node_ids
 
-def getIdsAndPositions(ids, segment_position_folder,neurons_per_file, numFilesPerFolder):
+def getIdsAndPositions(ids, segment_position_folder,neurons_per_file, numFilesPerFolder,targetIds):
 
     '''
     For the current rank, selects node_ids for which to calculate the coefficients, and returns their positions
@@ -550,6 +519,7 @@ def getIdsAndPositions(ids, segment_position_folder,neurons_per_file, numFilesPe
 
         filesPerRank = int(np.ceil(numPositionFiles/nranks))
 
+
         for index in range(filesPerRank):
             fileIdx = rank*filesPerRank + index
 
@@ -566,6 +536,10 @@ def getIdsAndPositions(ids, segment_position_folder,neurons_per_file, numFilesPe
                 positions = pd.concat((positions, newPositions),axis=1)
 
             g = np.unique(np.array(list(positions.columns))[:, 0])
+
+            g = g[np.isin(g,targetIds)]
+
+            positions = positions[g]
 
     return g, positions
 
@@ -624,7 +598,7 @@ def get_objectiveCSD_array(electrodeType,objective_csd_array_indices,objectiveCS
 
     return arrayIdx, objectiveCSD_count
 
-def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per_file,files_per_folder,sigma=[0.277],path_to_fields=None,objective_csd_array_indices=None,minDistance=0):
+def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per_file,files_per_folder,sigma=[0.277],target=None,path_to_fields=None,objective_csd_array_indices=None):
 
     '''
     path_to_simconfig refers to the BlueConfig from the 1-timestep simulation used to get the segment positions
@@ -634,13 +608,23 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
     files_per_folder is the number of positions pickle files in each subfolder in segment_position_folder. This is also specified by the user in getPositions()
     '''
 
-    _, allNodeIds = getSimulationInfo(path_to_simconfig,outputfile)
+    _, allNodeIds = getSimulationInfo(path_to_simconfig,outputfile,target)
     population_name = getPopulationName(path_to_simconfig,outputfile)
 
 
     h5 = h5py.File(outputfile, 'a',driver='mpio',comm=MPI.COMM_WORLD)
 
-    node_ids, positions = getIdsAndPositions(allNodeIds, segment_position_folder,neurons_per_file, files_per_folder)
+    if target is not None:
+
+        targetIds = getTargetIds(target,path_to_simconfig)
+    else:
+        targetIds = allNodeIds
+
+    node_ids, positions = getIdsAndPositions(allNodeIds, segment_position_folder,neurons_per_file, files_per_folder,targetIds)
+
+    if node_ids is None:
+
+        return 1
 
     if node_ids is None:
 

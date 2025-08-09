@@ -1,14 +1,14 @@
 # BlueRecording
 
-BlueRecording is used to produce an input file (also refered to as an electrodes file or a weights file) for the calculation of extracellular signals in [neurodamus](https://github.com/BlueBrain/neurodamus). 
+BlueRecording is used to produce an input file (also refered to as an electrodes file or a weights file) for the calculation of extracellular signals in [neurodamus](https://github.com/BlueBrain/neurodamus).
 
-This branch provides code that produces an electrodes file compatible with the [SONATA format](https://github.com/BlueBrain/sonata-extension/blob/master/source/sonata_tech.rst#format-of-the-electrodes_file). For scripts to produce an electrode file compatible with the old BlueConfig format, see the *non-sonata* branch of this repo. 
+This branch provides code that produces an electrodes file compatible with the [SONATA format](https://github.com/BlueBrain/sonata-extension/blob/master/source/sonata_tech.rst#format-of-the-electrodes_file). For scripts to produce an electrode file compatible with the old BlueConfig format, see the *non-sonata* branch of this repo.
 
 # User instructions
 
 ## System requirements
 
-Our documentation and examples assume that you are running BlueRecording on a Linux system with slurm and the spack package manager. BlueRecording has not been tested on any other system. 
+Our documentation and examples assume that you are running BlueRecording on a Linux system with slurm and the spack package manager. BlueRecording has not been tested on any other system.
 
 ## Dependencies
 
@@ -22,12 +22,12 @@ Running neural simulations to generate inputs to BlueRecording (and to calculate
 
 We recommend using a combimation of a spack environment and a `virtulenvironment` to install BlueRecording and its dependencies
 
-First create a spack environment, which is used to satisfy the h5py+mpi and mpi4py dependencies 
+First create a spack environment, which is used to satisfy the h5py+mpi and mpi4py dependencies
 
 ```
 spack env create bluerecording-dev
 spack env activate -p bluerecording-dev
-spack install --add py-h5py+mpi 
+spack install --add py-h5py+mpi
 spack install --add py-mpi4py
 ```
 
@@ -45,7 +45,7 @@ pip install -e .
 
 We recommend installing Neurodamus and the Neurodamus-Models mechanisms in a separate spack environment. Separate environments should be used for the cortex and hippocampus packages.
 
-To install Neurodamus for the neocortex, first run 
+To install Neurodamus for the neocortex, first run
 
 ```
 git clone https://github.com/BlueBrain/spack.git
@@ -55,12 +55,12 @@ spack env create neurodamus
 spack env activate -p neurodamus
 spack install --add neurodamus-models@develop+coreneuron
 ```
-Then, create modules for neurodamus and its dependencies. To do so, make sure that `py-neurodamus`,`neurodamus-models`,and `neuron` are included in your `~/.spack/modules.yaml` file. An example is provided [here](https://github.com/BlueBrain/BlueRecording/blob/main/modules.yaml). Then, run 
+Then, create modules for neurodamus and its dependencies. To do so, make sure that `py-neurodamus`,`neurodamus-models`,and `neuron` are included in your `~/.spack/modules.yaml` file. An example is provided [here](https://github.com/BlueBrain/BlueRecording/blob/main/modules.yaml). Then, run
 ```
 spack module tcl refresh
 module use $SPACK_INSTALL_PREFIX/modules/linux-rhel7-skylake
 ```
-The second of the two lines above must be run every time you begin a new terminal session. 
+The second of the two lines above must be run every time you begin a new terminal session.
 
 To intall Neorodamus for the hippocampus, follow the same steps as for the neocortex, except that the spack commands should be:
 ```
@@ -79,7 +79,7 @@ After following the instructions above, run `pytest tests`
 
 ## Steps to produce electrode files
 
-1. Produce a compartment report from a target including the cells that will be used in the extracellular recording. Complete documentation for this calculation can be found [here](https://github.com/BlueBrain/neurodamus/tree/main/docs). 
+1. Produce a compartment report from a target including the cells that will be used in the extracellular recording. Complete documentation for this calculation can be found [here](https://github.com/BlueBrain/neurodamus/tree/main/docs).
 
 2. Create a csv file containing information about the electrodes. Each row of the file contains information about one electrode contact. The format of the csv file is defined as follows:
    - The header is *name,x,y,z,layer,region,type*
@@ -94,7 +94,7 @@ After following the instructions above, run `pytest tests`
 
     The folder [examples/makeCsvFiles](https://github.com/BlueBrain/BlueRecording/tree/develop/examples/makeCsvFiles) contains an example python script that will generate a csv file for a Neuropixels probe.
 
-3. If the *Reciprocity* or *DipoleReciprocity* methods are used, you must calculate a lead-field. The lead field is the potential field (for the reciprocity method) or the E-field (for the dipole reciprocity method) produced in the neural tissue by running a current of 1 nA between the recording electrode and the reference electrode. BlueRecording assumes that this field is calculated using the Sim4Lfie finite element solver and exported as an h5 file. Other calculation methods are possible, asusming the field is exported in the same format. 
+3. If the *Reciprocity* or *DipoleReciprocity* methods are used, you must calculate a lead-field. The lead field is the potential field (for the reciprocity method) or the E-field (for the dipole reciprocity method) produced in the neural tissue by running a current of 1 nA between the recording electrode and the reference electrode. BlueRecording assumes that this field is calculated using the Sim4Lfie finite element solver and exported as an h5 file. Other calculation methods are possible, asusming the field is exported in the same format.
 
 4. Run the function `bluerecording.getPositions.getPositions(path_to_simconfig, neurons_per_file, files_per_folder, path_to_positions_folder,replace_axons=True)`. This loads the compartment report produced in step 1, and will create folders containing pickle files listing the (x,y,z) position of each segment in each cell in the target. The argument `neurons_per_file` refers to the number of neurons whose positions are stored in each pickle file, and `files_per_folder` refers to the number of such files in each folder (which should be adjusted based on your filesystem)
 
@@ -118,10 +118,14 @@ See [here](https://github.com/BlueBrain/BlueRecording/tree/main/examples)
 
 # Citation
 If you use this software, we kindly ask you to cite the following publication:
+<<<<<<< HEAD
 [Tharayil et al. BlueRecording: A Pipeline for efficient calculation of extracellular recordings in large-scale neural circuit models. *PLOS Computational Biology, (2025)*](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1013023)
+=======
+[Tharayil et al. BlueRecording: A Pipeline for efficient calculation of extracellular recordings in large-scale neural circuit models. *PLOS Computational Biology, (2025)*](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1013023)
+>>>>>>> feature/magneticRecording
 
 
 # Acknowledgment
 The development of this software was supported by funding to the Blue Brain Project, a research center of the École polytechnique fédérale de Lausanne (EPFL), from the Swiss government's ETH Board of the Swiss Federal Institutes of Technology.
- 
+
 Copyright (c) 2023 Blue Brain Project/EPFL

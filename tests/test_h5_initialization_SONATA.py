@@ -9,12 +9,36 @@ import h5py
 from bluerecording.writeH5_prelim import *
 
 
+<<<<<<< HEAD
+def test_makeElectrodeDict(electrodes,electrodes_sphere):
+
+    csv = './tests/data/electrode.csv'
+    expected = electrodes
+
+    for k in electrodes.keys():
+
+        np.testing.assert_equal(makeElectrodeDict(csv)[k], expected[k])
+
+    csv_sphere = './tests/data/electrode_sphere.csv'
+    expected = electrodes_sphere
+
+    for k in electrodes.keys():
+
+        np.testing.assert_equal(makeElectrodeDict(csv_sphere)[k], expected[k])
+
+    csv_invalid = './tests/data/electrode_invalid.csv'
+    expected = electrodes
+    for k in electrodes.keys():
+
+        np.testing.assert_equal(makeElectrodeDict(csv_invalid)[k], expected[k])
+=======
 def test_makeElectrodeDict(electrodes):
 
     csv = '/gpfs/bbp.cscs.ch/project/proj83/tharayil/generationCode/create_lfp_weights_for_neurodamus/tests/data/electrode.csv'
     expected = electrodes
 
     np.testing.assert_equal(makeElectrodeDict(csv)['name'], expected['name'])
+>>>>>>> feature/magneticRecording
 
 def test_ElectrodeFileStructure(write_ElectrodeFileStructure, electrodes, gids,population_name):
     
