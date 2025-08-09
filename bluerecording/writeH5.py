@@ -354,6 +354,37 @@ def get_coeffs_dipoleReciprocity(compartment_positions, path_to_fields,center):
 
     return outdf
 
+def get_coeffs_MEG(compartment_positions,electrode_position, center):
+
+    mu0 = 4*np.pi*1e-7
+
+    positionColumns = compartment_positions.columns
+    compartment_positions = compartment_positions.values
+
+    compartment_positions = compartment_positions * 1e-6 # Converts um to m, to match the potential field file
+
+    center = center * 1e-6
+
+    compartment_positions_New = compartment_positions - center.values[:,np.newaxis]
+
+    displacementVector = center - electrode_position
+
+    megCoeffs = mu0/(4*np.pi)* np.cross(compartment_positions_New,displacementVector)/np.linalg.norm(displacementVector,axis=1)**3
+
+    return megCoeffs
+
+def get_coeffs_MEG_x(compartment_positions,electrode_position, center):
+
+    return get_coeffs_MEG(compartment_positions,electrode_position, center)[:,0]
+
+def get_coeffs_MEG_y(compartment_positions,electrode_position, center):
+
+    return get_coeffs_MEG(compartment_positions,electrode_position, center)[:,1]
+
+def get_coeffs_MEG_z(compartment_positions,electrode_position, center):
+
+    return get_coeffs_MEG(compartment_positions,electrode_position, center)[:,2]
+
 def get_coeffs_reciprocity(compartment_positions, path_to_fields):
 
     '''
@@ -533,7 +564,11 @@ def sort_electrode_names(electrodeKeys,population_name):
 
 def ElectrodeType(electrodeType):
 
-    if electrodeType == 'LineSource' or electrodeType == 'PointSource' or electrodeType == 'DipoleReciprocity' or electrodeType == 'Reciprocity' or electrodeType == 'ObjectiveCSD_Sphere' or electrodeType == 'ObjectiveCSD_Disk' or electrodeType == 'ObjectiveCSD_Plane':
+    validElectrodeTypes = ['LineSource','PointSource','DipoleReciprocity','Reciprocity',
+    'ObjectiveCSD_Sphere','ObjectiveCSD_Disk','ObjectiveCSD_Plane',
+    'MEG_x','MEG_y','MEG_z']
+
+    if electrodeType in validElectrodeTypes:
         return 0
     else:
         raise AssertionError("Electrode type not recognized")
@@ -660,6 +695,24 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
                     center = newPositions.mean(axis=1)
 
                     coeffs = get_coeffs_dipoleReciprocity(newPositions,path_to_fields[reciprocityIdx],center)
+
+                elif electrodeType == 'MEG_x':
+
+                    center = newPositions.mean(axis=1)
+
+                    coeffs = get_coeffs_MEG_x(newPositions,path_to_fields[reciprocityIdx],center)
+
+                elif electrodeType == 'MEG_y':
+
+                    center = newPositions.mean(axis=1)
+
+                    coeffs = get_coeffs_MEG_y(newPositions,path_to_fields[reciprocityIdx],center)
+
+                elif electrodeType == 'MEG_z':
+
+                    center = newPositions.mean(axis=1)
+
+                    coeffs = get_coeffs_MEG_z(newPositions,path_to_fields[reciprocityIdx],center)
 
                 else:
 
