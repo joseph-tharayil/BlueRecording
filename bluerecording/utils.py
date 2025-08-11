@@ -127,13 +127,9 @@ def getSimulationInfo(path_to_simconfig,coefficientFile=None,target=None):
 
 def getTargetIds(target,path_to_simconfig):
 
-    if target is not None:
-        sim = bp.Simulation(path_to_simconfig)
-        c = sim.circuit
-        targetIds = c.nodes.ids(target).get_ids()
-
-    else:
-        targetIds = nodeIds
+    sim = bp.Simulation(path_to_simconfig)
+    c = sim.circuit
+    targetIds = c.nodes.ids(target).get_ids()
 
     return targetIds
 
