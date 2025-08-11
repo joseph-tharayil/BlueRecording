@@ -385,21 +385,31 @@ def get_coeffs_MEG(compartment_positions,electrode_position, center):
 
     displacementVector = center - electrode_position
 
-    megCoeffs = mu0/(4*np.pi)* np.cross(compartment_positions_New,displacementVector)/np.linalg.norm(displacementVector,axis=1)**3
+    
+
+
+    megCoeffs = mu0/(4*np.pi)* np.cross(compartment_positions_New.T,displacementVector)/np.linalg.norm(displacementVector)**3
+    
 
     return megCoeffs
 
 def get_coeffs_MEG_x(compartment_positions,electrode_position, center):
 
-    return get_coeffs_MEG(compartment_positions,electrode_position, center)[:,0]
+    coeffs = get_coeffs_MEG(compartment_positions,electrode_position, center)[:,0]
+
+    return pd.DataFrame(data=[coeffs],columns=compartment_positions.columns)
 
 def get_coeffs_MEG_y(compartment_positions,electrode_position, center):
 
-    return get_coeffs_MEG(compartment_positions,electrode_position, center)[:,1]
+    coeffs = get_coeffs_MEG(compartment_positions,electrode_position, center)[:,1]
+
+    return pd.DataFrame(data=[coeffs],columns=compartment_positions.columns)
 
 def get_coeffs_MEG_z(compartment_positions,electrode_position, center):
 
-    return get_coeffs_MEG(compartment_positions,electrode_position, center)[:,2]
+    coeffs = get_coeffs_MEG(compartment_positions,electrode_position, center)[:,2]
+
+    return pd.DataFrame(data=[coeffs],columns=compartment_positions.columns)
 
 def get_coeffs_reciprocity(compartment_positions, path_to_fields):
 
@@ -751,19 +761,19 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
 
                     center = newPositions.mean(axis=1)
 
-                    coeffs = get_coeffs_MEG_x(newPositions,path_to_fields[reciprocityIdx],center)
+                    coeffs = get_coeffs_MEG_x(newPositions,epos,center)
 
                 elif electrodeType == 'MEG_y':
 
                     center = newPositions.mean(axis=1)
 
-                    coeffs = get_coeffs_MEG_y(newPositions,path_to_fields[reciprocityIdx],center)
+                    coeffs = get_coeffs_MEG_y(newPositions,epos,center)
 
                 elif electrodeType == 'MEG_z':
 
                     center = newPositions.mean(axis=1)
 
-                    coeffs = get_coeffs_MEG_z(newPositions,path_to_fields[reciprocityIdx],center)
+                    coeffs = get_coeffs_MEG_z(newPositions,epos,center)
 
                 else:
 
