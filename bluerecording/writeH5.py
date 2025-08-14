@@ -118,7 +118,8 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma,minDistance=0):
 
             distance *= 1e-6 # Converts from um to m
 
-            distances[np.where(distances<minDistance)] = minDistance
+            if distance < minDistance:
+                distance = minDistance
 
             somaCoeff = 1/(4*np.pi*sigma*distance) # We treat the soma as a point, so the contribution at the electrode follows the formula for the potential from a point source
 
@@ -130,18 +131,20 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma,minDistance=0):
 
                 coeffs = np.hstack((coeffs,somaCoeff))
 
+            print(coeffs)
+
         elif positions.columns[i][-1]==positions.columns[i+1][-1]: # Ensures we are not at the far end of a section
 
-            meanPosition = (positions.iloc[:,i]+positions.iloc[:,i+1])/2
+            meanPosition = (positions.iloc[:,[i]]+positions.iloc[:,[i+1]])/2
+
             maxCoefficient = get_coeffs_pointSource(meanPosition,electrodePos,sigma,minDistance)
 
             segCoeff = get_line_coeffs(positions.iloc[:,i],positions.iloc[:,i+1],electrodePos,sigma)
 
-            if segCoeff > maxCoefficient:
-                segCoeff = maxCoefficient
+            if segCoeff > maxCoefficient.values:
+                segCoeff = float(maxCoefficient.values)
 
             coeffs = np.hstack((coeffs,segCoeff))
-
 
     coeffs = pd.DataFrame(data=coeffs[np.newaxis,:])
 
@@ -151,7 +154,7 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma,minDistance=0):
 
 def get_coeffs_pointSource(positions,electrodePos,sigma,minDistance=0):
 
-    # Sets minimum distance to be equal to peak of soma radius distribution
+    # Sets minimum distance to be zero by default
 
     distances = np.linalg.norm(positions.values-electrodePos[:,np.newaxis],axis=0)
 

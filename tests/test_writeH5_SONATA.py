@@ -237,6 +237,49 @@ def test_get_coeffs_pointSource(positions,electrodePosition,sigma,gids):
 
     pd.testing.assert_frame_equal(coeffs,expectedOutput)
 
+def test_get_coeffs_pointSource_minDistance(positions,sigma,gids):
+
+    minDistance = 1e-6 # Minimum distance from electrode to neural segment is specified in m
+
+    electrodePosition = np.array([0,0,0.01]) # Electrode position is specified in um
+
+    newPositions = getSegmentMidpts(positions,gids)
+    coeffs = get_coeffs_pointSource(newPositions,electrodePosition,sigma,minDistance)
+
+    somaDistance = minDistance
+    expectedSomaCoeff = 1/(4*np.pi*sigma*somaDistance)*1e-9
+
+    segmentDistance = minDistance
+
+    expectedSegmentCoeff = 1/(4*np.pi*sigma*segmentDistance)*1e-9
+
+    expectedOutput = pd.DataFrame(data=np.hstack((expectedSomaCoeff,expectedSegmentCoeff))[np.newaxis,:],columns=newPositions.columns)
+
+    pd.testing.assert_frame_equal(coeffs,expectedOutput)
+
+def test_get_coeffs_lineSource_minDistance(positions,data_twoSections,sigma,gids):
+
+    minDistance = 1e-6 # Minimum distance from electrode to neural segment is specified in m
+
+    columns = data_twoSections.columns
+
+    newPositions = getSegmentMidpts(positions,gids)
+
+    electrodePosition = np.array([0,0,0.01]) # Electrode position is specified in um
+
+    coeffs = get_coeffs_lineSource(positions,columns,electrodePosition,sigma,minDistance)
+
+    somaDistance = minDistance
+    expectedSomaCoeff = 1/(4*np.pi*sigma*somaDistance)*1e-9
+
+    segmentDistance = minDistance
+
+    expectedSegmentCoeff = 1/(4*np.pi*sigma*segmentDistance)*1e-9
+
+    expectedOutput = pd.DataFrame(data=np.hstack((expectedSomaCoeff,expectedSegmentCoeff))[np.newaxis,:],columns=newPositions.columns)
+
+    pd.testing.assert_frame_equal(coeffs,expectedOutput)
+
 def test_get_coeffs_reciprocity(positions,write_potentialField,gids):
 
     testPositions = getSegmentMidpts(positions,gids)
