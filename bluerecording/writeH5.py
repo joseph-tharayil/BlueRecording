@@ -131,8 +131,6 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma,minDistance=0):
 
                 coeffs = np.hstack((coeffs,somaCoeff))
 
-            print(coeffs)
-
         elif positions.columns[i][-1]==positions.columns[i+1][-1]: # Ensures we are not at the far end of a section
 
             meanPosition = (positions.iloc[:,[i]]+positions.iloc[:,[i+1]])/2
@@ -411,19 +409,6 @@ def get_coeffs_reciprocity(compartment_positions, path_to_fields):
     outdf = pd.DataFrame(data=(out2rat / currentApplied), columns=compartment_positions.columns) # Scale potential field by applied current
 
     return outdf
-
-def load_positions(segment_position_folder, filesPerFolder, numPositionFiles, rank):
-
-    '''
-    Loads positions file based on rank
-    '''
-
-    index = int(rank % numPositionFiles) # Selects position file to load
-    folder = int(index/filesPerFolder) # Finds which subfolder the position file is in
-
-    allPositions = pd.read_pickle(segment_position_folder+'/'+str(folder)+'/positions'+str(index)+'.pkl')
-
-    return allPositions
 
 def getNeuronSegmentMidpts(position):
     '''
