@@ -118,7 +118,8 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma,minDistance=0):
 
             distance *= 1e-6 # Converts from um to m
 
-            distances[np.where(distances<minDistance)] = minDistance
+            if distance < minDistance:
+                distance = minDistance
 
             somaCoeff = 1/(4*np.pi*sigma*distance) # We treat the soma as a point, so the contribution at the electrode follows the formula for the potential from a point source
 
@@ -133,9 +134,13 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma,minDistance=0):
         elif positions.columns[i][-1]==positions.columns[i+1][-1]: # Ensures we are not at the far end of a section
 
             meanPosition = (positions.iloc[:,i]+positions.iloc[:,i+1])/2
-            maxCoefficient = get_coeffs_pointSource(meanPosition,electrodePos,sigma,minDistance)
+
+            maxCoefficient = get_coeffs_pointSource(meanPosition,electrodePos,sigma,minDistance,isDF=False)
 
             segCoeff = get_line_coeffs(positions.iloc[:,i],positions.iloc[:,i+1],electrodePos,sigma)
+
+            print(segCoeff)
+            print(maxCoefficient)
 
             if segCoeff > maxCoefficient:
                 segCoeff = maxCoefficient
@@ -149,23 +154,30 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma,minDistance=0):
 
     return coeffs
 
-def get_coeffs_pointSource(positions,electrodePos,sigma,minDistance=0):
+def get_coeffs_pointSource(positions,electrodePos,sigma,minDistance=0,isDF=True):
 
     # Sets minimum distance to be equal to peak of soma radius distribution
 
-    distances = np.linalg.norm(positions.values-electrodePos[:,np.newaxis],axis=0)
+    if isDF: # Is true unless we are finidng the maximum coefficient for a segment using the line source approximation given some min distance between the segment and the electrode
+        distances = np.linalg.norm(positions.values-electrodePos[:,np.newaxis],axis=0)
+    else:
+        distances = np.linalg.norm(positions.values-electrodePos)
 
     distances *= 1e-6 # Converts from um to m
 
-    distances[np.where(distances<minDistance)] = minDistance
+    if isDF:
+        distances[np.where(distances<minDistance)] = minDistance
+    else:  # In this case, distances is a float rather than a data frame
+        if distances < minDistance:
+            distances = minDistance
 
     coeffs = 1/(4*np.pi*sigma*distances)
 
     coeffs *= 1e-9 # Converts from nA to A
 
-    coeffs = pd.DataFrame(data=coeffs[np.newaxis,:])
-
-    coeffs.columns = positions.columns
+    if isDF:
+        coeffs = pd.DataFrame(data=coeffs[np.newaxis,:])
+        coeffs.columns = positions.columns
 
     return coeffs
 

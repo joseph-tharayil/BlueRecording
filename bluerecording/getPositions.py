@@ -290,7 +290,7 @@ def remove_variables(js, finalmorphpath):
 
             if '$' in element:
                 element = js['manifest'][element]
-                
+
             if i == 0:
                 finalmorphpath = element
             else:
@@ -426,7 +426,6 @@ def checkAxonsFirst(morphology):
 
     return axonFirst
 
-<<<<<<< HEAD
 def getIds(nodeIds):
 
     newidx = MPI.COMM_WORLD.Get_rank()
@@ -443,9 +442,6 @@ def getIds(nodeIds):
     return ids
 
 def getPositions(path_to_simconfig, neurons_per_file, files_per_folder, path_to_positions_folder,target=None,replace_axons=True):
-=======
-def getPositions(path_to_simconfig, neurons_per_file, files_per_folder, path_to_positions_folder,replace_axons=True):
->>>>>>> feature/magneticRecording
 
     '''
     path_to_simconfig refers to the BlueConfig from the 1-timestep simulation used to get the segment positions
@@ -454,28 +450,14 @@ def getPositions(path_to_simconfig, neurons_per_file, files_per_folder, path_to_
     files_per_folder is the number of positions pickle files in each subfolder in segment_position_folder. This parameter is used in order to avoid stressing the file system with too many files in a given folder
     '''
 
-<<<<<<< HEAD
-
-=======
-    newidx = MPI.COMM_WORLD.Get_rank()
->>>>>>> feature/magneticRecording
 
     report, nodeIds = getSimulationInfo(path_to_simconfig)
     population = getPopulationObject(path_to_simconfig)
 
-<<<<<<< HEAD
     targetIds = getTargetIds(target, path_to_simconfig)
 
     ids = getIds(targetIds)
-=======
-    if len(nodeIds)/neurons_per_file > MPI.COMM_WORLD.Get_size():
-        raise AssertionError("Make sure that enough processes have been allocated to write position files")
 
-    try:
-        ids = nodeIds[neurons_per_file*newidx:neurons_per_file*(newidx+1)]
-    except:
-        ids = nodeIds[neurons_per_file*newidx:]
->>>>>>> feature/magneticRecording
 
     if len(ids) == 0:
         return 1
@@ -493,13 +475,11 @@ def getPositions(path_to_simconfig, neurons_per_file, files_per_folder, path_to_
 
         somaPos = center[:,np.newaxis]
 
-<<<<<<< HEAD
         somaRadius = np.array([m.soma.max_distance])[np.newaxis] # Radius of the soma
 
         somaPos = np.vstack((somaPos,somaRadius))
 
-=======
->>>>>>> feature/magneticRecording
+
         if replace_axons: # If the axons are replaced by a stub axon, we need to get the positions thereof
 
             axonPoints, runningLens = get_axon_points(m,center) # Gets 3d positions and cumulative length of the axon
@@ -585,9 +565,6 @@ def getPositions(path_to_simconfig, neurons_per_file, files_per_folder, path_to_
 
     positionsOut = pd.DataFrame(xyz,columns=newCols)
 
-<<<<<<< HEAD
     newidx = MPI.COMM_WORLD.Get_rank()
 
-=======
->>>>>>> feature/magneticRecording
     positionsOut.to_pickle(path_to_positions_folder+'/' + str(int(newidx / files_per_folder)) + '/positions'+str(newidx)+'.pkl')
