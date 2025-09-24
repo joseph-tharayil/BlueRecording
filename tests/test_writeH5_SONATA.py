@@ -170,6 +170,19 @@ def test_get_coeffs_lineSource(positions,data_twoSections,electrodePosition,sigm
 
     pd.testing.assert_frame_equal(coeffs,expectedOutput)
 
+def test_minDistance_lineSource(positions,data_twoSections,electrodePosition,sigma):
+
+    minDistance = 20e-6
+
+    columns = data_twoSections.columns
+    coeffs = get_coeffs_lineSource(positions,columns,electrodePosition,sigma,minDistance=minDistance)
+
+    expectedMaxCoeff = 1/(4*np.pi*sigma*minDistance)*1e-9
+
+    expectedOutput = pd.DataFrame(data=np.hstack((expectedMaxCoeff,expectedMaxCoeff))[np.newaxis,:],columns=columns)
+
+    pd.testing.assert_frame_equal(coeffs,expectedOutput)
+
 def test_lineSource():
 
     segment_positions = [np.array([0,0,0]),np.array([1,0,0])]
@@ -234,6 +247,19 @@ def test_get_coeffs_pointSource(positions,electrodePosition,sigma,gids):
     expectedSegmentCoeff = 1/(4*np.pi*sigma*segmentDistance)*1e-9
 
     expectedOutput = pd.DataFrame(data=np.hstack((expectedSomaCoeff,expectedSegmentCoeff))[np.newaxis,:],columns=newPositions.columns)
+
+    pd.testing.assert_frame_equal(coeffs,expectedOutput)
+
+def test_minDistance_pointSource(positions,electrodePosition,sigma,gids):
+
+    minDistance = 20e-6
+
+    newPositions = getSegmentMidpts(positions,gids)
+    coeffs = get_coeffs_pointSource(newPositions,electrodePosition,sigma,minDistance=minDistance)
+
+    expectedMaxCoeff = 1/(4*np.pi*sigma*minDistance)*1e-9
+
+    expectedOutput = pd.DataFrame(data=np.hstack((expectedMaxCoeff,expectedMaxCoeff))[np.newaxis,:],columns=newPositions.columns)
 
     pd.testing.assert_frame_equal(coeffs,expectedOutput)
 
