@@ -160,3 +160,8 @@ def test_atlasInfo(path_to_simconfig_with_atlas):
 
     assert regionList == ['S1FL']
     assert layerList == ['L5']
+
+def test_getTargetIds():
+    target = 'Cell'
+    tId = getTargetIds(target,'examples/compare-to-reference-solutions/data/simulation/simulation_config.json')
+    np.testing.assert_equal(tId,np.array(0))
