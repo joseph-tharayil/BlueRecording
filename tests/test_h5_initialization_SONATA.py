@@ -18,18 +18,18 @@ def test_makeElectrodeDict(electrodes,electrodes_sphere):
 
         np.testing.assert_equal(makeElectrodeDict(csv)[k], expected[k])
 
-#    csv_sphere = './tests/data/electrode_sphere.csv'
-#    expected = electrodes_sphere
+   csv_sphere = './tests/data/electrode_sphere.csv'
+   expected = electrodes_sphere
 
-#    for k in electrodes.keys():
+   for k in electrodes.keys():
 
-#        np.testing.assert_equal(makeElectrodeDict(csv_sphere)[k], expected[k])
+       np.testing.assert_equal(makeElectrodeDict(csv_sphere)[k], expected[k])
 
-#    csv_invalid = './tests/data/electrode_invalid.csv'
-#    expected = electrodes
-#    for k in electrodes.keys():
+   csv_invalid = './tests/data/electrode_invalid.csv'
+   expected = electrodes
+   for k in electrodes.keys():
 
-#        np.testing.assert_equal(makeElectrodeDict(csv_invalid)[k], expected[k])
+       np.testing.assert_equal(makeElectrodeDict(csv_invalid)[k], expected[k])
 
 def test_ElectrodeFileStructure(write_ElectrodeFileStructure, electrodes, gids,population_name):
     
