@@ -154,24 +154,70 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma,minDistance=0):
 
     return coeffs
 
-def get_coeffs_pointSource(positions,electrodePos,sigma,minDistance=0,isDF=True):
+def averageCoeffs(positions,electrodePos,electrodeSize):
 
-    # Sets minimum distance to be equal to peak of soma radius distribution
+    '''
+    Performs random sampling over the sphere to calculate average distance from point to surface
+    '''
 
-    if isDF: # Is true unless we are finidng the maximum coefficient for a segment using the line source approximation given some min distance between the segment and the electrode
-        distances = np.linalg.norm(positions.values-electrodePos[:,np.newaxis],axis=0)
-    else:
-        distances = np.linalg.norm(positions.values-electrodePos)
+    seed = 42
 
-    distances *= 1e-6 # Converts from um to m
+    N = 10 # Number of sample points
 
-    if isDF:
-        distances[np.where(distances<minDistance)] = minDistance
-    else:  # In this case, distances is a float rather than a data frame
-        if distances < minDistance:
-            distances = minDistance
+    a_array = positions-electrodePos[:,np.newaxis]
 
-    coeffs = 1/(4*np.pi*sigma*distances)
+    np.random.seed(seed)
+
+    # Sample N points uniformly on the sphere using spherical coordinates
+    u = np.random.rand(N)
+    v = np.random.rand(N)
+    theta = np.arccos(1 - 2 * u)  # θ ∈ [0, π]
+    phi = 2 * np.pi * v  # φ ∈ [0, 2π)
+
+    sin_theta = np.sin(theta)
+
+    # Convert to Cartesian coordinates
+    x = electrodeSize * sin_theta * np.cos(phi)
+    y = electrodeSize * sin_theta * np.sin(phi)
+    z = electrodeSize * np.cos(theta)
+
+    # Broadcast particle positions (3,N) and a_array (3,M) to compute distances
+    r_samples = np.stack([x, y, z], axis=0)  # shape (3,N)
+    a_array = np.atleast_2d(a_array)  # shape (3,M)
+
+
+    diff = r_samples[:, :, None] - a_array[:, None, :]  # shape (3, N, M)
+
+    dist = np.linalg.norm(diff, axis=0)  # shape (N,M)
+
+    # Average over sphere and normalize
+    avg_integrals = dist.mean(axis=0)
+
+
+    return 1/avg_integrals
+
+def get_coeffs_pointSource(positions,electrodePos,sigma,minDistance=0,isDF=True, size='NA'):
+
+    if size == 'NA': # Assumes infinitesimally small electrode
+
+        if isDF: # Is true unless we are finidng the maximum coefficient for a segment using the line source approximation given some min distance between the segment and the electrode
+            distances = np.linalg.norm(positions.values-electrodePos[:,np.newaxis],axis=0)
+        else:
+            distances = np.linalg.norm(positions.values-electrodePos)
+
+        distances *= 1e-6 # Converts from um to m
+
+        if isDF:
+            distances[np.where(distances<minDistance)] = minDistance
+        else:  # In this case, distances is a float rather than a data frame
+            if distances < minDistance:
+                distances = minDistance
+
+        coeffs = 1/(4*np.pi*sigma*distances)
+
+    else: #Assumes finite sized electrode
+
+        coeffs = 1/(4*np.pi*sigma)*averageCoeffs(positions.values*1e-6,electrodePos*1e-6,size*1e-6)
 
     coeffs *= 1e-9 # Converts from nA to A
 
@@ -682,7 +728,9 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
 
             if electrodeType == 'PointSource':
 
-                coeffs = get_coeffs_pointSource(newPositions, epos, sigma[sigmaIdx],minDistance)
+                electrodeSize = h5['electrodes'][str(electrode)]['size'][()] # Gets size for each electrode
+
+                coeffs = get_coeffs_pointSource(newPositions, epos, sigma[sigmaIdx],minDistance, size=electrodeSize)
 
                 if len(sigma) > 1:
                     sigmaIdx += 1

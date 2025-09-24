@@ -22,7 +22,7 @@
     }
   },
 
-  "target_simulator": "CORENEURON",
+  "target_simulator": "NEURON",
   "network": "./configuration/circuit_config.json",
   "node_set": "Cell",
   "output": {
