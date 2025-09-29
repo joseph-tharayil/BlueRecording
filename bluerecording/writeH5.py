@@ -711,7 +711,9 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
 
         if electrodeType == 'LineSource':
 
-            coeffs = get_coeffs_lineSource(positions,newPositions.columns,epos,sigma[sigmaIdx],minDistance)
+            electrodeSize = h5['electrodes'][str(electrode)]['size'][()]  # Gets size for each electrode
+
+            coeffs = get_coeffs_lineSource(positions,newPositions.columns,epos,sigma[sigmaIdx],minDistance=electrodeSize)
 
             if len(sigma) > 1:
                 sigmaIdx += 1
@@ -723,7 +725,7 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
 
                 electrodeSize = h5['electrodes'][str(electrode)]['size'][()] # Gets size for each electrode
 
-                coeffs = get_coeffs_pointSource(newPositions, epos, sigma[sigmaIdx],minDistance, size=electrodeSize)
+                coeffs = get_coeffs_pointSource(newPositions, epos, sigma[sigmaIdx],minDistance=electrodeSize)
 
                 if len(sigma) > 1:
                     sigmaIdx += 1

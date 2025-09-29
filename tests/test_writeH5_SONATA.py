@@ -511,7 +511,7 @@ def test_getIdsAndPositions():
     positionFileIndices = []
     iterationsInPositionFile = []
     for rank in range(nranks):
-        positionFileIndex, _, _, iterationInPositionFile = getIndices(rank, nranks,numPositionFiles,neurons_per_file)
+        positionFileIndex, _, iterationInPositionFile = getIndices(rank, nranks,numPositionFiles,neurons_per_file)
         positionFileIndices.append(positionFileIndex)
         iterationsInPositionFile.append(iterationInPositionFile)
 

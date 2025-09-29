@@ -151,10 +151,10 @@ def makeElectrodeDict(electrode_csv):
                     warnings.warn("If you specify an electrode size, bluerecording will assume that it is spherical in shape")
                     shape = 'sphere'
             else:
-                size = 'NA'
+                size = 0
                 warnings.warn("Electrode size can only be defined for LineSource or PointSource; otherwise, it is ignored")
         else:
-            size = 'NA'
+            size = 0
 
 
         electrodes[name] = {'position': position,'type': electrodeType,

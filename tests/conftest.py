@@ -114,7 +114,7 @@ def secCounts(data):
 @pytest.fixture(scope="module")
 def electrodes():
 
-    electrodes = {'name':{'position':np.array([1,2,3]),'type':'Reciprocity','region':'Outside','layer':'Outside','size':'NA','shape':'NA'}}
+    electrodes = {'name':{'position':np.array([1,2,3]),'type':'Reciprocity','region':'Outside','layer':'Outside','size':0,'shape':'NA'}}
 
     return electrodes
 

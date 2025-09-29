@@ -45,6 +45,8 @@ def test_ElectrodeFileStructure(write_ElectrodeFileStructure, electrodes, gids,p
         
         if key == 'position':
             np.testing.assert_equal(newFile['electrodes/name/'+key][:], value)
+        elif key == 'size':
+            np.testing.assert_equal(newFile['electrodes/name/'+key][()], value)
         else: 
             np.testing.assert_equal(newFile['electrodes/name/'+key][()].decode(), value)
             
