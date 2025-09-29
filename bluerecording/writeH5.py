@@ -154,17 +154,11 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma,minDistance=0):
 
     return coeffs
 
-def averageCoeffs(positions,electrodePos,electrodeSize):
-
-    '''
-    Performs random sampling over the sphere to calculate average distance from point to surface
-    '''
+def getRandomSpherePoints(electrodeSize):
 
     seed = 42
 
-    N = 10 # Number of sample points
-
-    a_array = positions-electrodePos[:,np.newaxis]
+    N = 100000 # Number of sample points
 
     np.random.seed(seed)
 
@@ -181,6 +175,18 @@ def averageCoeffs(positions,electrodePos,electrodeSize):
     y = electrodeSize * sin_theta * np.sin(phi)
     z = electrodeSize * np.cos(theta)
 
+    return x, y, z
+
+def averageDistances(positions,electrodePos,electrodeSize):
+
+    '''
+    Performs random sampling over the sphere to calculate average distance from point to surface
+    '''
+
+    a_array = positions-electrodePos[:,np.newaxis]
+
+    x,y,z = getRandomSpherePoints(electrodeSize)
+
     # Broadcast particle positions (3,N) and a_array (3,M) to compute distances
     r_samples = np.stack([x, y, z], axis=0)  # shape (3,N)
     a_array = np.atleast_2d(a_array)  # shape (3,M)
@@ -194,7 +200,7 @@ def averageCoeffs(positions,electrodePos,electrodeSize):
     avg_integrals = dist.mean(axis=0)
 
 
-    return 1/avg_integrals
+    return avg_integrals
 
 def get_coeffs_pointSource(positions,electrodePos,sigma,minDistance=0,isDF=True, size='NA'):
 
@@ -217,7 +223,7 @@ def get_coeffs_pointSource(positions,electrodePos,sigma,minDistance=0,isDF=True,
 
     else: #Assumes finite sized electrode
 
-        coeffs = 1/(4*np.pi*sigma)*averageCoeffs(positions.values*1e-6,electrodePos*1e-6,size*1e-6)
+        coeffs = 1/(4*np.pi*sigma*averageDistances(positions.values*1e-6,electrodePos*1e-6,size*1e-6))
 
     coeffs *= 1e-9 # Converts from nA to A
 
@@ -467,20 +473,6 @@ def get_coeffs_reciprocity(compartment_positions, path_to_fields):
 
     return outdf
 
-
-def load_positions(segment_position_folder, filesPerFolder, numPositionFiles, rank):
-
-    '''
-    Loads positions file based on rank
-    '''
-
-    index = int(rank % numPositionFiles) # Selects position file to load
-    folder = int(index/filesPerFolder) # Finds which subfolder the position file is in
-
-    allPositions = pd.read_pickle(segment_position_folder+'/'+str(folder)+'/positions'+str(index)+'.pkl')
-
-    return allPositions
-
 def getNeuronSegmentMidpts(position):
     '''
     Gets midpoints for a single neuron
@@ -512,20 +504,13 @@ def getSegmentMidpts(positions,node_ids):
 
     newPos = positions.groupby(level=0,axis=1,group_keys=False).apply(getNeuronSegmentMidpts)
 
-
     return newPos
 
+def load_positions(segment_position_folder, filesPerFolder, position_file_index):
 
-def get_position_file_name(filesPerFolder, numPositionFiles, rank):
+    folder = int(position_file_index / filesPerFolder)
 
-    index = int(rank % numPositionFiles)
-    folder = int(index/filesPerFolder)
-
-    return str(folder)+'/positions'+str(index)+'.pkl'
-
-def load_positions(segment_position_folder, filesPerFolder, numPositionFiles, rank):
-
-    position_file = get_position_file_name(filesPerFolder, numPositionFiles, rank)
+    position_file = str(folder)+'/positions'+str(position_file_index)+'.pkl'
 
     allPositions = pd.read_pickle(segment_position_folder+'/'+position_file)
 
@@ -543,7 +528,19 @@ def getCurrentIds(positions,iteration,iterationSize):
 
     return node_ids
 
-def getIdsAndPositions(ids, segment_position_folder,neurons_per_file, numFilesPerFolder,targetIds):
+def getIndices(rank, nranks, numPositionFiles,neurons_per_file):
+
+    position_file_index = int(rank % numPositionFiles)
+
+    iterationsPerFile = int(nranks / numPositionFiles)  # How many ranks is any position file divided among
+
+    iterationSize = int(np.ceil(neurons_per_file / iterationsPerFile))  # Number of node_ids processed on this rank
+
+    iterationInPositionFile = int(rank / numPositionFiles)
+
+    return position_file_index, iterationSize, iterationInPositionFile
+
+def getIdsAndPositions(segment_position_folder,neurons_per_file, numFilesPerFolder,targetIds):
 
     '''
     For the current rank, selects node_ids for which to calculate the coefficients, and returns their positions
@@ -552,41 +549,37 @@ def getIdsAndPositions(ids, segment_position_folder,neurons_per_file, numFilesPe
     rank = MPI.COMM_WORLD.Get_rank()
     nranks = MPI.COMM_WORLD.Get_size()
 
+    def count_files(path):
+        count = 0
+        for _, _, files in os.walk(path):
+            count += len(files)
+        return count
 
-    numPositionFiles = np.ceil(len(ids)/neurons_per_file)
+    numPositionFiles = count_files(segment_position_folder)
 
-    iterationsPerFile = int(nranks/numPositionFiles) # How many ranks is any position file divided among
+    if nranks >= numPositionFiles:
 
-    if iterationsPerFile >= 1:
-
-        iterationSize = int(np.ceil(neurons_per_file / iterationsPerFile))  # Number of node_ids processed on this rank
+        positionFileIndex, iterationSize, iterationInPositionFile = getIndices(rank, nranks, numPositionFiles, neurons_per_file)
 
         if iterationSize < 1:
             raise AssertionError(
-                "Each rank must process at least one neuron. Either decrease the number of ranks or decrease the number of neurons per file if necessary")
+                "Each rank must process at least one neuron. Please decrease the number of ranks")
 
-        iteration = int(rank / numPositionFiles)
+        positions = load_positions(segment_position_folder,numFilesPerFolder, positionFileIndex)
 
-        positions = load_positions(segment_position_folder,numFilesPerFolder, numPositionFiles, rank)
-
-        g = getCurrentIds(positions,iteration,iterationSize)
-
-        positions = positions[g] # Gets positions for specific gids
+        g = getCurrentIds(positions,iterationInPositionFile,iterationSize)
 
     else:
 
         filesPerRank = int(np.ceil(numPositionFiles/nranks))
 
-
         for index in range(filesPerRank):
-            fileIdx = rank*filesPerRank + index
+            positionFileIndex = rank*filesPerRank + index
 
-            if fileIdx >= numPositionFiles:
+            if positionFileIndex >= numPositionFiles:
                 continue
 
-            folder = int(fileIdx/numFilesPerFolder)
-
-            newPositions = pd.read_pickle(segment_position_folder+'/'+str(folder)+'/positions'+str(fileIdx)+'.pkl')
+            newPositions = load_positions(segment_position_folder,numFilesPerFolder, positionFileIndex)
 
             if index == 0:
                 positions = newPositions
@@ -595,9 +588,9 @@ def getIdsAndPositions(ids, segment_position_folder,neurons_per_file, numFilesPe
 
             g = np.unique(np.array(list(positions.columns))[:, 0])
 
-            g = g[np.isin(g,targetIds)]
+        g = g[np.isin(g,targetIds)]
 
-            positions = positions[g]
+        positions = positions[g]
 
     return g, positions
 
@@ -677,7 +670,7 @@ def writeH5File(path_to_simconfig,segment_position_folder,outputfile,neurons_per
     else:
         targetIds = allNodeIds
 
-    node_ids, positions = getIdsAndPositions(allNodeIds, segment_position_folder,neurons_per_file, files_per_folder,targetIds)
+    node_ids, positions = getIdsAndPositions(segment_position_folder,neurons_per_file, files_per_folder,targetIds)
 
     if node_ids is None:
 

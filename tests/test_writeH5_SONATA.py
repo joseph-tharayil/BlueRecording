@@ -94,16 +94,6 @@ def write_ElectrodeFileStructure_objective(path_to_weights_file, electrodes_obje
 
     return path_to_weights_file, h5
 
-def test_get_position_file_name(filesPerFolder, numPositionFiles):
-
-    rank = 0
-
-    assert get_position_file_name(filesPerFolder,numPositionFiles,rank)=='0/positions0.pkl'
-
-    rank = 453
-
-    assert get_position_file_name(filesPerFolder,numPositionFiles,rank)=='1/positions53.pkl'
-
 
 def test_getSegmentMidpts(positions,gids):
 
@@ -263,7 +253,13 @@ def test_minDistance_pointSource(positions,electrodePosition,sigma,gids):
 
     pd.testing.assert_frame_equal(coeffs,expectedOutput)
 
+
 def test_get_coeffs_pointSource_finite(positions,sigma,gids):
+
+    '''
+    This test confirms that at large distances between the neurite and the electrode,
+    finite-sized and infinitesimally small electrodes produce approximately the same result
+    '''
 
     x0 = 1e2
 
@@ -499,3 +495,27 @@ def test_get_objectiveCSD_array(write_ElectrodeFileStructure_objective):
 
     np.testing.assert_equal(arrayIdx,np.arange(4,5))
     assert objectiveCSD_count == 1
+
+def test_getIdsAndPositions():
+
+    nranks = 10
+    rank = 2
+    numPositionFiles = 5
+    neurons_per_file = 100
+
+    positionFileIndex, iterationSize, iterationInPositionFile = getIndices(rank, nranks, numPositionFiles, neurons_per_file)
+
+    assert iterationSize == 50
+    assert iterationInPositionFile == 0
+
+    positionFileIndices = []
+    iterationsInPositionFile = []
+    for rank in range(nranks):
+        positionFileIndex, _, _, iterationInPositionFile = getIndices(rank, nranks,numPositionFiles,neurons_per_file)
+        positionFileIndices.append(positionFileIndex)
+        iterationsInPositionFile.append(iterationInPositionFile)
+
+    assert len(np.unique(positionFileIndices)) == numPositionFiles
+    assert (np.max(iterationsInPositionFile)+1)*iterationSize == neurons_per_file
+
+
