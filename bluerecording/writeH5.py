@@ -139,8 +139,6 @@ def get_coeffs_lineSource(positions,columns,electrodePos,sigma,minDistance=0):
 
             segCoeff = get_line_coeffs(positions.iloc[:,i],positions.iloc[:,i+1],electrodePos,sigma)
 
-            print(segCoeff)
-            print(maxCoefficient)
 
             if segCoeff > maxCoefficient:
                 segCoeff = maxCoefficient
@@ -212,6 +210,8 @@ def get_coeffs_pointSource(positions,electrodePos,sigma,minDistance=0,isDF=True,
             distances = np.linalg.norm(positions.values-electrodePos)
 
         distances *= 1e-6 # Converts from um to m
+
+        minDistance *= 1e-6 # Converts from um to m
 
         if isDF:
             distances[np.where(distances<minDistance)] = minDistance
