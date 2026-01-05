@@ -275,7 +275,7 @@ def alignmentInfo(path_to_simconfig,target):
     pca.fit(somaPos)
     main_axis = pca.components_[0]
 
-    elevation = np.arctan2(np.sqrt(main_axis[0]**2+main_axis[1]**2),main_axis[2])
+    elevation = np.arctan2(main_axis[2], np.sqrt(main_axis[0]**2+main_axis[1]**2)) 
     azimuth = np.arctan2(main_axis[1],main_axis[0])
 
     return center, azimuth, elevation
