@@ -32,6 +32,8 @@ def init_circuit(path_to_simconfig: str):
         direct_mode=True,
         build_model=True,
         enable_coord_mapping=True,
+        keep_build=False,
+        simulator="NEURON",
     )
     assert len(nd.circuits.node_managers) == 1, (
         "Multiple or no node managers are not allowed for the moment"
