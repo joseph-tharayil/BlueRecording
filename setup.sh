@@ -197,7 +197,7 @@ if [[ "$DOWNLOAD_DATA" == "1" ]]; then
     # -------------------------
     # Download networks data if requested via --data
     # -------------------------
-    CONFIG_DIR="examples/circuitTest/data/configuration"
+    CONFIG_DIR="examples/sscx_100_cells/configuration"
     NETWORK_DIR="$CONFIG_DIR/networks"
 
     if [ -d "$NETWORK_DIR" ] && [ "$(ls -A "$NETWORK_DIR")" ]; then
@@ -217,6 +217,31 @@ if [[ "$DOWNLOAD_DATA" == "1" ]]; then
         rm networks.zip
 
         echo "=== Networks dataset ready at $NETWORK_DIR ==="
+    fi
+    # -------------------------
+    # Download single_cell_l5_tpc FEM field files if requested via --data
+    # -------------------------
+    L5_TPC_DIR="examples/single_cell_l5_tpc"
+    L5_TPC_FILE1="$L5_TPC_DIR/Infinite_VeryFar_HighRes.h5"
+    L5_TPC_FILE2="$L5_TPC_DIR/Infinite_Close_HighRes_SmallSphere.h5"
+
+    if [ -f "$L5_TPC_FILE1" ] && [ -f "$L5_TPC_FILE2" ]; then
+        echo "=== Skipping single_cell_l5_tpc FEM field download — files already exist ==="
+    else
+        echo "=== Downloading single_cell_l5_tpc FEM field files ==="
+        mkdir -p "$L5_TPC_DIR"
+
+        if [ ! -f "$L5_TPC_FILE1" ]; then
+            curl -L -o "$L5_TPC_FILE1" \
+                "https://zenodo.org/record/10927050/files/Infinite_VeryFar_HighRes.h5?download=1"
+        fi
+
+        if [ ! -f "$L5_TPC_FILE2" ]; then
+            curl -L -o "$L5_TPC_FILE2" \
+                "https://zenodo.org/record/10927050/files/Infinite_Close_HighRes_SmallSphere.h5?download=1"
+        fi
+
+        echo "=== single_cell_l5_tpc FEM field files ready ==="
     fi
 else
     echo "=== Skipping data download and generation — --data not given ==="
