@@ -26,6 +26,18 @@ source setup.sh --dev
 
 If you want to skip the system packages installation append `--no-system` to the previous lines.
 
+Use `--quick` to skip building NEURON, libsonatareport, neurodamus, and neurodamus-models from source (useful for CI or when you only need the Python package):
+
+```bash
+source setup.sh --dev --quick
+```
+
+Use `--no-cache` to wipe the virtual environment and all build artifacts before reinstalling from scratch (downloaded data is preserved):
+
+```bash
+source setup.sh --dev --no-cache
+```
+
 Finally, if you want to run the full testing suite you need `--data`. See the [Testing](#testing) section for details.
 
 
@@ -48,8 +60,10 @@ The initial input data of `BlueRecording` includes a [compartment report](https:
 On the first run, the script will:
 1. Create a Python virtual environment with MPI-enabled `h5py` and `mpi4py`
 2. Clone and build `libsonatareport`
-3. Clone and build `neurodamus-models` (neocortex)
-4. Install the `bluerecording` package
+3. Clone and build NEURON from source (with `libsonatareport` support)
+4. Install `neurodamus` from source
+5. Clone and build `neurodamus-models` (neocortex)
+6. Install the `bluerecording` package
 
 In subsequent sessions, running `source setup.sh` again will simply activate the existing environment.
 
@@ -100,6 +114,12 @@ pytest -v -m "not skip_in_ci" tests/unit
 ```
 
 This is also what runs in CI, where we avoid downloading the full test data to keep pipelines fast and lightweight.
+
+> **Note:** If you installed with the `--quick` flag (i.e. `source setup.sh --dev --quick`), NEURON, neurodamus, libsonatareport, and neurodamus-models are not available. In that case only the non-MPI unit tests can run:
+> ```bash
+> pytest -v -m "not skip_in_ci" tests/unit
+> ```
+> The MPI tests and any test that requires neurodamus will be skipped or fail.
 
 To run only the slow, data-intensive tests (e.g., single cell and 100-cell integration tests):
 
