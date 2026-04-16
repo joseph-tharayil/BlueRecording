@@ -6,7 +6,7 @@ requires-python = ">=3.10"
 dependencies = [
     "pandas",
     "morphio",
-    "bluepysnap",
+    "libsonata",
     "voxcell",
     "scikit-learn"
 ]
@@ -19,7 +19,8 @@ test = [
 ]
 notebooks = [
     "jupyterlab",
-    "ipympl"
+    "ipympl",
+    "bluepysnap"
 ]
 all = [
     "bluerecording[test]",
