@@ -334,7 +334,7 @@ def tryFileNames(morphName, finalmorphpath):
 
 def get_morph_path(population, i, path_to_simconfig):
 
-    morphName = population.get(i, 'morphology') # Gets name of the morphology file for node_id i
+    morphName = population.get_attribute('morphology', i) # Gets name of the morphology file for node_id i
 
     circuitpath = getCircuitPath(path_to_simconfig) # path to circuit_config file
 
@@ -471,11 +471,42 @@ def get_cell_positions(m, center, cols, gid, replace_axons):
 
 
 
+def resolve_neurite_types(cols_for_gid, cell):
+    """Return an int array of neurite-type codes for one neuron's compartments.
+
+    Queries the actual NEURON section via ``cell.get_sec()`` and maps the
+    section-type string (e.g. ``"soma"``, ``"axon"``, ``"myelin"``) to its
+    index in ``neurodamus.metype.BaseCell.SECTION_TYPES``.  This reflects
+    the simulator's SectionList membership rather than the coarser MorphIO
+    classification, and automatically picks up any future types added to
+    neurodamus.
+
+    Args:
+        cols_for_gid: (M, 2) array of (gid, section_index) pairs for this neuron.
+        cell: Neurodamus cell object (e.g. ``Cell_V6``).
+
+    Returns:
+        (M,) int32 array where each element is the index into
+        ``BaseCell.SECTION_TYPES`` for that compartment's section.
+    """
+    from neurodamus.metype import BaseCell
+
+    type_to_code = {st: idx for idx, (st, _) in enumerate(BaseCell.SECTION_TYPES)}
+
+    section_indices = cols_for_gid[:, 1]
+    result = np.empty(len(section_indices), dtype=np.int32)
+    for i, sec_idx in enumerate(section_indices):
+        sec = cell.get_sec(int(sec_idx))
+        sec_type = sec.name().rsplit(".", 1)[-1].rsplit("[", 1)[0]
+        result[i] = type_to_code[sec_type]
+    return result
+
+
 def get_positions(node_manager, ids, cols, population, path_to_simconfig, replace_axons=True):
     """Compute segment boundary positions for all cells on this rank.
 
-    Pure computation — no file I/O. Returns the positions DataFrame
-    and the cols array for downstream use.
+    Pure computation — no file I/O. Returns the positions DataFrame,
+    the cols array, and per-compartment neurite types for downstream use.
 
     Args:
         node_manager: Neurodamus node manager.
@@ -490,24 +521,31 @@ def get_positions(node_manager, ids, cols, population, path_to_simconfig, replac
         positions_df: DataFrame with MultiIndex columns (id, section),
             shape (3, M) where M includes segment boundary duplicates.
         cols: The input cols array, passed through for convenience.
+        neurite_types: (N,) int32 array of neurite type codes per compartment,
+            aligned with cols row order.
     """
     cell_arrays = []
+    neurite_type_arrays = []
     for i in ids:
         cell = node_manager.get_cell(i)
         m, center = get_morphology(population, i, path_to_simconfig, cell)
 
         cell_arrays.append(get_cell_positions(m, center, cols, i, replace_axons))
 
+        cols_for_gid = cols[cols[:, 0] == i]
+        neurite_type_arrays.append(resolve_neurite_types(cols_for_gid, cell))
+
     if not cell_arrays:
         empty_idx = pd.MultiIndex.from_tuples([], names=["id", "section"])
         positions_df = pd.DataFrame(np.empty((3, 0)), columns=empty_idx)
-        return positions_df, cols
+        return positions_df, cols, np.array([], dtype=np.int32)
 
     xyz = np.hstack(cell_arrays)
     new_cols = getNewIndex(cols)
     positions_df = pd.DataFrame(xyz, columns=new_cols)
+    neurite_types = np.concatenate(neurite_type_arrays)
 
-    return positions_df, cols
+    return positions_df, cols, neurite_types
 
 
 
