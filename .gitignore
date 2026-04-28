@@ -37,6 +37,8 @@ positions/
 *.pkl
 !*_ref.pkl
 venv/
+*_venv/
+env.sh
 pkls/
 pkls_big/
 htmlcov/

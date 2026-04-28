@@ -10,44 +10,51 @@ This branch provides code that produces an electrodes file compatible with the [
 
 ### Dependencies
 
-BlueRecording requires `mpi4py`, `h5py`, and `hdf5` built with MPI support. The provided `setup.sh` script handles all of this automatically, including building NEURON, neurodamus, and libsonatareport from source.
+BlueRecording declares most of its dependencies in `pyproject.toml`. A few need special attention:
 
-`setup.sh` works for both macOS (with `brew`) and Linux (with `apt`) systems:
+| Package | Notes |
+|---|---|
+| `h5py` | Declared in pyproject.toml, but must be the MPI-enabled build (`HDF5_MPI=ON`). The default pip wheel lacks MPI support. |
+| `neuron` | Optional extra (`pip install bluerecording[neuron]`). For simulations with reporting, build from source instead. |
+| `neurodamus` | Declared in pyproject.toml. `dev_setup.sh` may install from a specific Git commit. |
+| `neurodamus-models` | CMake project (not a Python package). Required in all cases — needed to generate weights or run simulations. Built by `dev_setup.sh`. |
 
-```bash
-source setup.sh
-```
+If h5py lacks MPI support or neuron is missing, bluerecording will raise a clear error on import.
 
-If you want the developer version with tests and editable source files:
+### User installation
 
-```bash
-source setup.sh --dev
-```
-
-If you want to skip the system packages installation append `--no-system` to the previous lines.
-
-Use `--quick` to skip building NEURON, libsonatareport, neurodamus, and neurodamus-models from source (useful for CI or when you only need the Python package):
+**Weights-only use** — no `dev_setup.sh` needed:
 
 ```bash
-source setup.sh --dev --quick
+pip install bluerecording[neuron]
 ```
 
-Use `--no-cache` to wipe the virtual environment and all build artifacts before reinstalling from scratch (downloaded data is preserved):
+**Simulations** — neuron already built from source:
 
 ```bash
-source setup.sh --dev --no-cache
+pip install bluerecording
 ```
 
-Finally, if you want to run the full testing suite you need `--data`. See the [Testing](#testing) section for details.
+### Development setup
 
-
-This is required only once to set up your python virtual environment. In future sessions you still need to run once:
+The provided `dev_setup.sh` script handles all of this automatically, building NEURON and libsonatareport from source. It works on macOS (with `brew`) and Linux (with `apt`).
 
 ```bash
-source setup.sh
+./dev_setup.sh
+source env.sh
 ```
 
-But the execution is much faster. 
+Append `--no-system` to skip system package installation (brew/apt).
+
+Use `--clean-install` to wipe the virtual environment and all build artifacts before reinstalling from scratch (downloaded data is preserved):
+
+```bash
+./dev_setup.sh --clean-install
+source env.sh
+```
+
+If you want to run the full testing suite you need `--data`. See the [Testing](#testing) section for details.
+
 ---
 # Input data
 
@@ -55,17 +62,15 @@ The initial input data of `BlueRecording` includes a [compartment report](https:
 
 ### Neurodamus
 
-`setup.sh` automatically installs [neurodamus](https://github.com/openbraininstitute/neurodamus), [neurodamus-models](https://github.com/openbraininstitute/neurodamus-models) (neocortex mechanisms), and [libsonatareport](https://github.com/openbraininstitute/libsonatareport) from source. No separate spack environment is needed.
-
-On the first run, the script will:
+`dev_setup.sh` builds the full simulation stack:
 1. Create a Python virtual environment with MPI-enabled `h5py` and `mpi4py`
 2. Clone and build `libsonatareport`
 3. Clone and build NEURON from source (with `libsonatareport` support)
 4. Install `neurodamus` from source
-5. Clone and build `neurodamus-models` (neocortex)
-6. Install the `bluerecording` package
+5. Clone and build `neurodamus-models` (neocortex, with reporting)
+6. Install the `bluerecording` package (editable, with test + notebook deps)
 
-In subsequent sessions, running `source setup.sh` again will simply activate the existing environment.
+In subsequent sessions, running `source env.sh` will activate the existing environment.
 
 ---
 # Testing
@@ -73,7 +78,8 @@ In subsequent sessions, running `source setup.sh` again will simply activate the
 First, make sure you have set up the development environment with test data:
 
 ```bash
-source setup.sh --dev --data
+./dev_setup.sh --data
+source env.sh
 ```
 
 This only needs to be done once. It will download a few hundreds of Mb of data and run a few short simulations.
@@ -106,20 +112,14 @@ mpirun -n 2 python -m pytest tests/unit-mpi/test_h5py_MPI.py --with-mpi -v
 mpirun -n 2 python -m pytest tests/unit-mpi/test_get_positions.py --with-mpi -v
 ```
 
-If you want to run only the base tests (without downloading data), after `source setup.sh --dev`:
+If you want to run only the base tests (without downloading data), after `source env.sh`:
 
 ```bash
 mpirun -n 2 pytest -v tests/unit-mpi --with-mpi
 pytest -v -m "not skip_in_ci" tests/unit
 ```
 
-This is also what runs in CI, where we avoid downloading the full test data to keep pipelines fast and lightweight.
-
-> **Note:** If you installed with the `--quick` flag (i.e. `source setup.sh --dev --quick`), NEURON, neurodamus, libsonatareport, and neurodamus-models are not available. In that case only the non-MPI unit tests can run:
-> ```bash
-> pytest -v -m "not skip_in_ci" tests/unit
-> ```
-> The MPI tests and any test that requires neurodamus will be skipped or fail.
+This is also what runs in CI, where we avoid downloading large datasets to keep pipelines fast.
 
 To run only the slow, data-intensive tests (e.g., single cell and 100-cell integration tests):
 

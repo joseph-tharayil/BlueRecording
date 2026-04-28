@@ -3,11 +3,38 @@ from importlib.metadata import version
 
 __version__ = version("bluerecording")
 
-from mpi4py import MPI
-import h5py
 
-if not h5py.get_config().mpi:
-    raise RuntimeError("h5py lacks MPI support. Reinstall it with MPI support.")
+def _check_dependencies():
+    """Verify runtime dependencies that need special attention.
 
-if MPI.COMM_WORLD.size < 1:
-    raise RuntimeError("MPI not initialized correctly.")
+    - h5py is declared in pyproject.toml but must be the MPI-enabled build.
+      The default pip wheel lacks MPI support.
+    - neuron is an optional extra ([neuron]). Required at runtime but kept
+      optional because it may be built from source.
+    """
+    import h5py
+
+    if not h5py.get_config().mpi:
+        raise ImportError(
+            "h5py is installed but was built without MPI support.\n"
+            "bluerecording requires parallel HDF5 I/O.\n"
+            "Fix with:\n"
+            "  pip uninstall h5py\n"
+            "  HDF5_MPI=ON pip install --no-cache-dir --no-binary=h5py h5py "
+            "--no-build-isolation\n"
+            "Or use './dev_setup.sh' followed by 'source env.sh' "
+            "which handles this automatically."
+        )
+
+    try:
+        import neuron  # noqa: F401
+    except ImportError:
+        raise ImportError(
+            "bluerecording requires NEURON.\n"
+            "Install with: pip install bluerecording[neuron]\n"
+            "Or use './dev_setup.sh' followed by 'source env.sh' "
+            "to build from source."
+        )
+
+
+_check_dependencies()
