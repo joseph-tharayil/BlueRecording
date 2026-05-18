@@ -31,15 +31,15 @@ def _check_dependencies():
         # MPI_Init has been called. When NEURON is statically linked against
         # MPI (NRN_ENABLE_MPI_DYNAMIC=OFF), it expects MPI to already be
         # initialized by the time it loads.
-        from mpi4py import MPI  # noqa: F401
+        from mpi4py import MPI  # noqa: F401  # isort: skip
         import neuron  # noqa: F401
-    except ImportError:
+    except ImportError as err:
         raise ImportError(
             "bluerecording requires NEURON.\n"
             "Install with: pip install bluerecording[neuron]\n"
             "Or use './dev_setup.sh' followed by 'source env.sh' "
             "to build from source."
-        )
+        ) from err
 
 
 _check_dependencies()
