@@ -10,10 +10,12 @@ from morphio import Morphology, SectionType
 from mpi4py import MPI
 from scipy.interpolate import interp1d
 
+from .circuit import init_circuit
+
 rank = MPI.COMM_WORLD.Get_rank()
 
 
-class PositionedMorphology:
+class _PositionedMorphology:
     """A morphology with points transformed to global (circuit) coordinates.
 
     Wraps an immutable MorphIO morphology, applying an optional coordinate
@@ -67,7 +69,7 @@ class PositionedMorphology:
         return self._points[o[sec_id] : o[sec_id + 1]]
 
 
-def interp_points(coords: np.ndarray, ncomps: int) -> np.ndarray:
+def _interp_points(coords: np.ndarray, ncomps: int) -> np.ndarray:
     """Interpolate segment boundary points along a dendritic section.
 
     Given the 3D points of a section and a number of compartments, returns
@@ -99,7 +101,7 @@ def interp_points(coords: np.ndarray, ncomps: int) -> np.ndarray:
     return xyz
 
 
-def _get_cumulative_length(m: PositionedMorphology, sec, soma_pos: np.ndarray, cache: dict[int, float]) -> float:
+def _get_cumulative_length(m: _PositionedMorphology, sec, soma_pos: np.ndarray, cache: dict[int, float]) -> float:
     """Return cumulative arc length from soma to the end of a section.
 
     Computes lazily and caches results so each section is measured at most once.
@@ -149,7 +151,7 @@ def _get_branch_section_ids(sec) -> list[int]:
 
 
 def _find_best_axon_branch(
-    m: PositionedMorphology, soma_pos: np.ndarray, target_length: float
+    m: _PositionedMorphology, soma_pos: np.ndarray, target_length: float
 ) -> tuple[list[int], bool]:
     """Find the best axonal branch for simulated-axon position reconstruction.
 
@@ -191,7 +193,7 @@ def _find_best_axon_branch(
 
 
 def _collect_branch_points(
-    m: PositionedMorphology,
+    m: _PositionedMorphology,
     section_ids: list[int],
     soma_pos: np.ndarray,
     target_length: float,
@@ -264,7 +266,7 @@ def _extrapolate_branch(
     return points, running_len
 
 
-def get_axon_points(m: PositionedMorphology, center: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def _get_axon_points(m: _PositionedMorphology, center: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Extract 3D positions and cumulative lengths along the simulated axon.
 
     The simulated axon consists of two AIS sections (30 µm each) and a 1000 µm
@@ -275,7 +277,7 @@ def get_axon_points(m: PositionedMorphology, center: np.ndarray) -> tuple[np.nda
     extrapolated.
 
     Args:
-        m: PositionedMorphology with points in global coordinates.
+        m: _PositionedMorphology with points in global coordinates.
         center: Soma position as a 1D array of shape (3,).
 
     Returns:
@@ -297,7 +299,7 @@ def get_axon_points(m: PositionedMorphology, center: np.ndarray) -> tuple[np.nda
     return axon_points, np.array(running_len)[indices]
 
 
-def interp_points_axon(
+def _interp_points_axon(
     axon_points: np.ndarray,
     running_lens: np.ndarray,
     sec_id: int,
@@ -386,7 +388,7 @@ def interp_points_axon(
     return seg_pos
 
 
-def get_new_index(cols: np.ndarray) -> pd.MultiIndex:
+def _get_new_index(cols: np.ndarray) -> pd.MultiIndex:
     """Build a new MultiIndex by duplicating certain (id, section) column tuples.
 
     Each column is kept once. Non-somatic columns (section != 0) are
@@ -414,7 +416,7 @@ def get_new_index(cols: np.ndarray) -> pd.MultiIndex:
 
 
 def _get_cell_positions(
-    m: PositionedMorphology,
+    m: _PositionedMorphology,
     center: np.ndarray,
     cols: np.ndarray,
     gid: int,
@@ -428,7 +430,7 @@ def _get_cell_positions(
     interpolated along the simulated axon branch instead.
 
     Args:
-        m: PositionedMorphology with points in global coordinates.
+        m: _PositionedMorphology with points in global coordinates.
         center: Soma position, shape (3,).
         cols: (N, 2) array of (gid, section) pairs for all cells.
         gid: GID of the cell to process.
@@ -443,7 +445,7 @@ def _get_cell_positions(
 
     axon_points, running_lens = None, None
     if replace_axons:
-        axon_points, running_lens = get_axon_points(m, center)
+        axon_points, running_lens = _get_axon_points(m, center)
 
     sections = np.unique(cols[np.where(gid_mask), 1:].flatten())
 
@@ -455,22 +457,22 @@ def _get_cell_positions(
         num_compartments = np.sum(gid_mask & (cols[:, 1] == sec_id))
 
         if sec_id < 3 and replace_axons:
-            seg_pos = interp_points_axon(axon_points, running_lens, sec_id, num_compartments)
+            seg_pos = _interp_points_axon(axon_points, running_lens, sec_id, num_compartments)
         else:
             morpho_sec_id = sec_id - 1
             if morpho_sec_id >= m.num_sections:
                 # Beyond morphology sections → myelinated AIS
-                seg_pos = interp_points_axon(axon_points, running_lens, sec_id, num_compartments)
+                seg_pos = _interp_points_axon(axon_points, running_lens, sec_id, num_compartments)
             else:
                 sec_pts = np.array(m.section_points(morpho_sec_id))
-                seg_pos = interp_points(sec_pts, num_compartments)
+                seg_pos = _interp_points(sec_pts, num_compartments)
 
         xyz = np.hstack((xyz, seg_pos.T))
 
     return xyz
 
 
-def resolve_neurite_types(cols_for_gid: np.ndarray, cell) -> np.ndarray:
+def _resolve_neurite_types(cols_for_gid: np.ndarray, cell) -> np.ndarray:
     """Return an int array of neurite-type codes for one neuron's compartments.
 
     Queries the actual NEURON section via ``cell.get_sec()`` and maps the
@@ -569,7 +571,7 @@ def get_positions(
         # differ by up to ~1.8 µm.
         morph_name = population.get_attribute("morphology", cell.raw_gid)
         morph_path = _find_morph_file(morph_name, morphologies_dir)
-        m = PositionedMorphology(
+        m = _PositionedMorphology(
             Morphology(morph_path),
             transform=cell.local_to_global_coord_mapping,
         )
@@ -578,7 +580,7 @@ def get_positions(
         cell_arrays.append(_get_cell_positions(m, center, cols, i, replace_axons))
 
         cols_for_gid = cols[cols[:, 0] == i]
-        neurite_type_arrays.append(resolve_neurite_types(cols_for_gid, cell))
+        neurite_type_arrays.append(_resolve_neurite_types(cols_for_gid, cell))
 
     if not cell_arrays:
         empty_idx = pd.MultiIndex.from_arrays(
@@ -589,7 +591,7 @@ def get_positions(
         return positions_df, cols, np.array([], dtype=np.int32)
 
     xyz = np.hstack(cell_arrays)
-    new_cols = get_new_index(cols)
+    new_cols = _get_new_index(cols)
     positions_df = pd.DataFrame(xyz, columns=new_cols)
     neurite_types = np.concatenate(neurite_type_arrays)
 
@@ -600,9 +602,40 @@ def save_positions(positions_df: pd.DataFrame, path_to_positions_folder: str | P
     """Write positions DataFrame to a pickle file for this MPI rank.
 
     Args:
-        positions_df: DataFrame returned by get_positions.
+        positions_df: DataFrame returned by compute_positions.
         path_to_positions_folder: Output directory.
     """
     path_to_positions_folder = Path(path_to_positions_folder)
     path_to_positions_folder.mkdir(parents=True, exist_ok=True)
     positions_df.to_pickle(path_to_positions_folder / f"positions{rank}.pkl")
+
+
+def compute_positions(
+    path_to_config: str | Path,
+    replace_axons: bool = True,
+) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
+    """High-level API: compute segment positions from a config file.
+
+    Handles circuit initialization and position computation in one call.
+    Accepts either a simulation config or a circuit config path.
+
+    Args:
+        path_to_config: Path to a SONATA simulation or circuit configuration file.
+        replace_axons: If True, replace morphological axons with a standardized
+            stub (two 30 µm AIS sections + 1000 µm myelinated section).
+
+    Returns:
+        positions_df: DataFrame with MultiIndex columns (id, section),
+            shape (3, M) where M includes segment boundary duplicates.
+        cols: (N, 2) int64 array of (gid, section) pairs.
+        neurite_types: (N,) int32 array of neurite type codes per compartment.
+    """
+    node_manager, ids, cols, population, _, morphologies_dir = init_circuit(str(path_to_config))
+    return get_positions(
+        node_manager,
+        ids,
+        cols,
+        population,
+        morphologies_dir=morphologies_dir,
+        replace_axons=replace_axons,
+    )

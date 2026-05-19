@@ -94,8 +94,9 @@ After that, the simplest way to run the full test suite is:
 You can also run subsets:
 
 ```bash
-./run_tests.sh unit   # only unit tests
-./run_tests.sh mpi    # only MPI tests
+./run_tests.sh unit          # unit tests only (no MPI)
+./run_tests.sh integration   # integration tests only (no MPI)
+./run_tests.sh mpi           # MPI tests (unit-mpi + integration-mpi)
 ```
 
 If you need to re-run setup before testing:
@@ -108,16 +109,19 @@ Alternatively, you can run the tests manually:
 
 ```bash
 python -m pytest tests/unit/ -v --forked
-mpirun -n 2 python -m pytest tests/unit-mpi/test_write_weights.py --with-mpi -v
-mpirun -n 2 python -m pytest tests/unit-mpi/test_h5py_MPI.py --with-mpi -v
-mpirun -n 2 python -m pytest tests/unit-mpi/test_get_positions.py --with-mpi -v
+python -m pytest tests/integration/ -v --forked
+mpirun -n 2 python -m pytest tests/unit-mpi/test_h5py.py --with-mpi -v
+mpirun -n 2 python -m pytest tests/integration-mpi/test_write_weights.py --with-mpi -v
+mpirun -n 2 python -m pytest tests/integration-mpi/test_positions.py --with-mpi -v
 ```
 
 If you want to run only the base tests (without downloading data), after `source env.sh`:
 
 ```bash
-mpirun -n 2 pytest -v tests/unit-mpi --with-mpi
 pytest -v -m "not skip_in_ci" tests/unit
+pytest -v -m "not skip_in_ci" tests/integration
+mpirun -n 2 pytest -v -m "not skip_in_ci" tests/unit-mpi --with-mpi
+mpirun -n 2 pytest -v -m "not skip_in_ci" tests/integration-mpi --with-mpi
 ```
 
 This is also what runs in CI, where we avoid downloading large datasets to keep pipelines fast.
@@ -125,8 +129,8 @@ This is also what runs in CI, where we avoid downloading large datasets to keep 
 To run only the slow, data-intensive tests (e.g., single cell and 100-cell integration tests):
 
 ```bash
-pytest -v -m "slow" tests/unit --forked
-mpirun -n 2 pytest -v -m "slow" tests/unit-mpi --with-mpi
+pytest -v -m "skip_in_ci" tests/integration --forked
+mpirun -n 2 pytest -v -m "skip_in_ci" tests/integration-mpi --with-mpi
 ```
 
 
@@ -168,28 +172,18 @@ mpirun -n 2 pytest -v -m "slow" tests/unit-mpi --with-mpi
     **Python API.** The same steps can be performed from Python:
 
     ```python
-    from bluerecording.circuit import init_circuit
-    from bluerecording.positions import get_positions, save_positions
-    from bluerecording.weights import initializeH5File, writeH5File
+    from bluerecording import compute_weights, save_weights, save_positions
 
-    # Initialize the circuit (loads neurodamus, extracts discretization info)
-    node_manager, ids, cols, population, population_name = init_circuit(path_to_simconfig)
-
-    # Compute segment boundary positions for all cells on this MPI rank
-    positions_df, cols = get_positions(
-        node_manager, ids, cols, population,
-        path_to_simconfig=path_to_simconfig,
+    # Compute weights and positions in one call
+    weights, positions_df, cols, neurite_types, population_name = compute_weights(
+        path_to_config, electrodes="electrodes.csv", sigma=[0.277]
     )
+
+    # Save the weights file (MPI-parallel)
+    save_weights(weights, cols, population_name, "weights.h5", electrodes="electrodes.csv")
 
     # Optionally save positions to disk
     save_positions(positions_df, path_to_positions_folder)
-
-    # Create the H5 electrode file (run on all ranks; only rank 0 writes)
-    initializeH5File(cols, population_name, outputfile, electrode_csv)
-
-    # Populate the electrode file with the correct coefficients (MPI-parallel)
-    writeH5File(positions_df, cols, population_name, outputfile,
-                sigma=[0.277], path_to_fields=None)
     ```
 
     Here `sigma` is the extracellular conductivity in S/m (default 0.277), used by the *PointSource* and *LineSource* methods. `path_to_fields` is a list of paths to finite element H5 files, required when using *Reciprocity* or *DipoleReciprocity* electrodes. Details about the `objective_csd_array_indices` argument are available [here](https://github.com/openbraininstitute/BlueRecording/blob/main/ObjectiveCSD.md).

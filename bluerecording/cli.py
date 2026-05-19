@@ -3,7 +3,8 @@ from pathlib import Path
 
 from . import __version__, positions
 from .circuit import init_circuit
-from .weights import DEFAULT_SIGMA, initialize_h5_file, write_h5_file
+from .positions import compute_positions, save_positions
+from .weights import DEFAULT_SIGMA, Electrode, get_weights, save_weights
 
 
 def main():
@@ -15,7 +16,7 @@ def main():
 
     # write_positions command
     gp_parser = subparsers.add_parser("write_positions", help="Compute and save segment positions to disk")
-    gp_parser.add_argument("path_to_simconfig", type=str, help="Path to the simulation configuration file")
+    gp_parser.add_argument("path_to_simconfig", type=str, help="Path to the simulation or circuit configuration file")
     gp_parser.add_argument(
         "path_to_positions_folder", type=str, help="Path to the folder where positions will be stored"
     )
@@ -28,12 +29,12 @@ def main():
 
     # write_weights command
     ww_parser = subparsers.add_parser("write_weights", help="Compute electrode weights for all cells in the circuit")
-    ww_parser.add_argument("path_to_simconfig", type=str, help="Path to the simulation configuration file")
+    ww_parser.add_argument("path_to_simconfig", type=str, help="Path to the simulation or circuit configuration file")
     ww_parser.add_argument("electrode_csv", type=str, help="Path to the electrode CSV file")
     ww_parser.add_argument(
         "output_path",
         type=str,
-        help="Path to the output H5 weights file, or a directory (weights.h5 will be created inside)",
+        help="Path to the output H5 weights file (e.g. /path/to/weights.h5)",
     )
     ww_parser.add_argument(
         "--no-replace-axons",
@@ -73,19 +74,17 @@ def main():
     args = parser.parse_args()
 
     if args.command == "write_positions":
-        node_manager, ids, cols, population, _, morphologies_dir = init_circuit(args.path_to_simconfig)
-        positions_df, _, _ = positions.get_positions(
-            node_manager,
-            ids,
-            cols,
-            population,
-            morphologies_dir=morphologies_dir,
-            replace_axons=args.replace_axons,
-        )
-        positions.save_positions(positions_df, args.path_to_positions_folder)
+        positions_df, _, _ = compute_positions(args.path_to_simconfig, replace_axons=args.replace_axons)
+        save_positions(positions_df, args.path_to_positions_folder)
 
     elif args.command == "write_weights":
         node_manager, ids, cols, population, population_name, morphologies_dir = init_circuit(args.path_to_simconfig)
+
+        output_file = Path(args.output_path)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+
+        electrodes = Electrode.from_csv(args.electrode_csv)
+
         positions_df, cols, neurite_types = positions.get_positions(
             node_manager,
             ids,
@@ -94,24 +93,20 @@ def main():
             morphologies_dir=morphologies_dir,
             replace_axons=args.replace_axons,
         )
-        output_file = Path(args.output_path)
-        if output_file.is_dir() or not output_file.suffix:
-            output_file.mkdir(parents=True, exist_ok=True)
-            output_file = output_file / "weights.h5"
-        elif output_file.suffix != ".h5":
-            parser.error(f"output_path must be a directory or an .h5 file, got '{output_file}'")
-
-        initialize_h5_file(
-            cols, population_name, str(output_file), args.electrode_csv, with_neurite_type=args.with_neurite_type
-        )
-        write_h5_file(
+        weights = get_weights(
             positions_df,
+            cols,
+            electrodes=electrodes,
+            sigma=args.sigma,
+            path_to_fields=args.path_to_fields,
+        )
+        save_weights(
+            weights,
             cols,
             population_name,
             str(output_file),
-            sigma=args.sigma,
-            path_to_fields=args.path_to_fields,
+            electrodes=electrodes,
             neurite_types=neurite_types if args.with_neurite_type else None,
         )
         if args.write_positions:
-            positions.save_positions(positions_df, output_file.parent)
+            save_positions(positions_df, output_file.parent)
